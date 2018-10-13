@@ -106,7 +106,7 @@ def create_database(datalogpath, database=None):
                     """
                     try:
                         # Try to load a .tdms
-                        print('           ... loading metadata from .tdms')
+                        print('           ... loading metadata from .tdms: {}'.format(os.path.split(tdmspath)[-1]))
                         tdms = TdmsFile(tdmspath)
                         if session_metadata.software == 'behaviour':
                             visual_rec_stims, audio_rec_stims, digital_rec_stims = [], [], []

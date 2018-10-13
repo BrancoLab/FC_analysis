@@ -34,10 +34,12 @@ class Processing:
                     self.define_processing_metadata()
                     # Apply processes in parallel
                     # TODO use decorator to make sure that functions are automatically added to the list, avoid bugs
-                    funcs = [self.extract_bodylength, self.extract_velocity,
-                             self.extract_location_relative_shelter,   self.extract_orientation]
+                    funcs = [self.extract_bodylength, self.extract_velocity, self.extract_orientation]
                     pool = ThreadPool(len(funcs))
                     [pool.apply(func) for func in funcs]
+
+                    try: self.extract_location_relative_shelter()
+                    except: pass
 
                     # Other processing steps will not be done in parallel
                     self.extract_ang_velocity()
@@ -67,16 +69,19 @@ class Processing:
         data = self.tracking_data
 
         # Get the position of the centre of the shelter
-        if not 'shelter location' in data.metadata.keys():
-            if self.settings['shelter location'] == 'roi':
-                # Get centre of shelter roi
-                shelter_location = get_shelter_location(self.settings['shelter location'], self.session)
+        try:
+            if not 'shelter location' in data.metadata.keys():
+                if self.settings['shelter location'] == 'roi':
+                    # Get centre of shelter roi
+                    shelter_location = get_shelter_location(self.settings['shelter location'], self.session)
+                else:
+                    # Get it from DLC tracking
+                    shelter_location = get_shelter_location(self.settings['shelter location'], data)
+                data.metadata['shelter location'] = shelter_location
             else:
-                # Get it from DLC tracking
-                shelter_location = get_shelter_location(self.settings['shelter location'], data)
-            data.metadata['shelter location'] = shelter_location
-        else:
-            shelter_location = data.metadata['shelter location']
+                shelter_location = data.metadata['shelter location']
+        except:
+            return
 
         # Get position relative to shelter from STD data
         if self.settings['std'] and self.tracking_data.std_tracking['x'] is not None:
@@ -113,16 +118,16 @@ class Processing:
         data = self.tracking_data
 
         # Get the position of the centre of the shelter
-        if not data.metadata['shelter location']:
-            if self.settings['shelter location'] == 'roi':
-                # Get centre of shelter roi
-                shelter_location = get_shelter_location(self.settings['shelter location'], self.session)
-            else:
-                # Get it from DLC tracking
-                shelter_location = get_shelter_location(self.settings['shelter location'], data)
-            data.metadata['shelter location'] = shelter_location
-        else:
-            shelter_location = data.metadata['shelter location']
+        # if not data.metadata['shelter location']:
+        #     if self.settings['shelter location'] == 'roi':
+        #         # Get centre of shelter roi
+        #         shelter_location = get_shelter_location(self.settings['shelter location'], self.session)
+        #     else:
+        #         # Get it from DLC tracking
+        #         shelter_location = get_shelter_location(self.settings['shelter location'], data)
+        #     data.metadata['shelter location'] = shelter_location
+        # else:
+        #     shelter_location = data.metadata['shelter location']
 
         # Get the position of the two bodyparts
         head, _ = from_dlc_to_single_bp(data, self.settings['head'])
@@ -230,22 +235,22 @@ class Processing:
                         bp_data['Acceleration_{}'.format(un)] = calc_acceleration(distance, unit=un, fps=fps,
                                                                                             bodylength=bodylength)
 
-            # Check if movement is in the direction the mouse if facing or not (for "body" velocity)
-            if not self.settings['dlc single bp']:
-                body_data = data.dlc_tracking['Posture'][self.settings['body']]
-                head_data = data.dlc_tracking['Posture'][self.settings['head']]
-                distances, result = [], []
-                for i in range(len(body_data.values)):
-                    body_pos = (body_data.loc[i]['x'], body_data.loc[i]['y'])
-                    head_pos = (head_data.loc[i]['x'], head_data.loc[i]['y'])
-                    if i > 0:
-                        now_d = calc_distance_2d((body_pos[i], head_pos[i-1]), vectors=False)
-                        prev_d = calc_distance_2d((body_pos[i-1], head_pos[i-1]), vectors=False)
-                        if now_d <= prev_d: result.append(1)
-                        else: result.append(-1)
-                    else:
-                        result.append(1)
-                data.dlc_tracking['Posture'][self.settings['body']]['Velocity Direction Multiplier'] = result
+            # # Check if movement is in the direction the mouse if facing or not (for "body" velocity)
+            # if not self.settings['dlc single bp']:
+            #     body_data = data.dlc_tracking['Posture'][self.settings['body']]
+            #     head_data = data.dlc_tracking['Posture'][self.settings['head']]
+            #     distances, result = [], []
+            #     for i in range(len(body_data.values)):
+            #         body_pos = (body_data.loc[i]['x'], body_data.loc[i]['y'])
+            #         head_pos = (head_data.loc[i]['x'], head_data.loc[i]['y'])
+            #         if i > 0:
+            #             now_d = calc_distance_2d((body_pos[i], head_pos[i-1]), vectors=False)
+            #             prev_d = calc_distance_2d((body_pos[i-1], head_pos[i-1]), vectors=False)
+            #             if now_d <= prev_d: result.append(1)
+            #             else: result.append(-1)
+            #         else:
+            #             result.append(1)
+            #     data.dlc_tracking['Posture'][self.settings['body']]['Velocity Direction Multiplier'] = result
 
 
 

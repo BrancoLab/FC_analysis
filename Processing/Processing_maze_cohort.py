@@ -18,10 +18,9 @@ plt.rcParams.update(params)
 
 import array
 import math
-import scipy.stats
 import random
 import seaborn as sns
-from scipy.stats import norm
+from scipy import stats
 
 from Plotting.Plotting_utils import make_legend, save_all_open_figs
 from Utils.Data_rearrange_funcs import flatten_list
@@ -31,6 +30,9 @@ from Config import cohort_options
 
 arms_colors = dict(left=(255, 0, 0), central=(0, 255, 0), right=(0, 0, 255), shelter=(200, 180, 0),
                         threat=(0, 180, 200))
+
+
+
 
 
 class mazecohortprocessor:
@@ -47,12 +49,15 @@ class mazecohortprocessor:
         metad =  cohort.Metadata[name]
         tracking_data = cohort.Tracking[name]
 
-        self.sample_escapes_probabilities(tracking_data)
+        self.from_trials_to_dataframe(metad, tracking_data)
 
-        self.plot_velocites_grouped(tracking_data, metad, selector='exp')
+        self.plot_bootstrapped_distributions()
 
-        self.process_trials(tracking_data)
-
+        # self.process_trials(tracking_data)
+        #
+        # self.sample_escapes_probabilities(tracking_data)
+        #
+        # self.plot_velocites_grouped(tracking_data, metad, selector='exp')
 
         # self.process_status_at_stim(tracking_data)
 
@@ -66,23 +71,132 @@ class mazecohortprocessor:
         plt.show()
         a = 1
 
-    def coin_simultor(self, num_samples=10, num_iters=10000):
-        probs = []
-        for itern in tqdm(range(num_iters)):
-            data = [random.randint(0, 1) for x in range(num_samples)]
-            prob_one = len([n for n in data if n==1])/len(data)
-            probs.append(prob_one)
+    def from_trials_to_dataframe(self, metad, tracking_data):
+        t = namedtuple('trial', 'name session data origin escape stimulus experiment configuration')
+        data = []
+        for trial in tracking_data.trials:
+            outcome = trial.processing['Trial outcome']['trial_outcome']
+            if not outcome:
+                print(trial.name, ' no escape')
+                continue
+            else:
+                tr_sess_id = int(trial.name.split('-')[0])
+                for session in metad.sessions_in_cohort:
+                    id = session[1].session_id
+                    exp = None
+                    if id == tr_sess_id:
+                        exp = session[1].experiment
+                        break
+                d = t(trial.name, tr_sess_id, trial, trial.processing['Trial outcome']['threat_origin_arm'],
+                      trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
+                      trial.processing['Trial outcome']['maze_configuration'])
+                data.append(d)
 
-        f, ax = plt.subplots(1, 1, facecolor=[0.1, 0.1, 0.1])
-        ax.set(facecolor=[0.2, 0.2, 0.2], xlim=[0,1], ylim=[0, 4000])
-        basecolor = [.3, .3, .3]
+        self.triald_df = pd.DataFrame(data, columns=('name', 'session', 'data', 'origin', 'escape', 'stimulus',
+                                                     'experiment', 'configuration'))
 
-        ax.hist(probs, color=(basecolor), bins=75)
-        avg = np.mean(probs)
-        # ax.axvline(avg, color=basecolor, linewidth=4, linestyle=':')
-        print('mean {}'.format(avg))
+    def plot_bootstrapped_distributions(self, num_iters=50000, normalised=True, noise=True, replacement=True):
+        def bootstrap(data, num_iters, num_samples =False, tag='Right', noise=noise, replacement=replacement):
+            if not num_samples: num_samples = len(data)
+            noise_std = 1 / (math.sqrt(num_samples)) ** 2
+            res = []
+            for _ in tqdm(range(num_iters)):
+                if not replacement:
+                    sel_trials = random.sample(data, num_samples)
+                else:
+                    sel_trials = [random.choice(data) for _ in data]
+                    sel_trials = sel_trials[:num_samples]
+                calculated_probability = len([b for b in sel_trials if tag in b]) / num_samples
+                if noise:
+                    res.append(calculated_probability+np.random.normal(scale=noise_std))
+                else:
+                    res.append(calculated_probability)
+            return res
 
-    def sample_escapes_probabilities(self, tracking_data, num_samples=24, num_iters=10000, replacement=True):
+        def coin_simultor(num_samples=38, num_iters=50000):
+            probs = []
+            noise_std = 1 / (math.sqrt(num_samples)) ** 2
+            for _ in tqdm(range(num_iters)):
+                data = [random.randint(0, 1) for _ in range(num_samples)]
+                prob_one = len([n for n in data if n == 1]) / len(data) + np.random.normal(scale=noise_std)
+                probs.append(prob_one)
+            return probs
+
+        """ Calculate bootstrapped probability of going R on Two arms maze and Flip Flop VS and FLip Flop AS"""
+        ff_vis = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
+                               (self.triald_df['stimulus'] == 'visual')]
+        vis_flipflop_bs = bootstrap(ff_vis['escape'].values, num_iters)
+        vis_flipflop_mean = len([e for e in ff_vis['escape'].values if 'Right' in e])/len(ff_vis['escape'].values)
+
+        ff_aud = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
+                               (self.triald_df['stimulus'] == 'audio') & (self.triald_df['configuration'] == 'Right')]
+        audio_flipflop_bs = bootstrap(ff_aud['escape'].values, num_iters)
+        audio_flipflop_mean = len([e for e in ff_aud['escape'].values if 'Right' in e])/len(ff_aud['escape'].values)
+
+        twoarm = self.triald_df.loc[(self.triald_df['experiment'] == 'PathInt2')]
+        twoarms_bs = bootstrap(twoarm['escape'].values, num_iters)
+        twoarms_flipflop_mean = len([e for e in twoarm['escape'].values if 'Right' in e])/len(twoarm['escape'].values)
+
+
+        """ calculate welche's t test [independant paired t test for samples with different N and SD]:
+                 https://www.scipy-lectures.org/packages/statistics/index.html   """
+        welch_ffvis_ffaud = stats.ttest_ind([1 if 'Right' in e else 0 for e in ff_vis['escape'].values],
+                                            [1 if 'Right' in e else 0 for e in ff_aud['escape'].values],
+                                            equal_var=False)
+        welch_ffvis_twoarms = stats.ttest_ind([1 if 'Right' in e else 0 for e in ff_vis['escape'].values],
+                                              [1 if 'Right' in e else 0 for e in twoarm['escape'].values],
+                                              equal_var=False)
+        welch_ffaud_twoarms = stats.ttest_ind([1 if 'Right' in e else 0 for e in ff_aud['escape'].values],
+                                              [1 if 'Right' in e else 0 for e in twoarm['escape'].values],
+                                              equal_var=False)
+
+        """ calculate probs for squared mazes """
+        squared = self.triald_df.loc[(self.triald_df['experiment'] == 'Square Maze') |
+                                     (self.triald_df['experiment'] == 'TwoAndahalf Maze')]
+        squared_bs = bootstrap(squared['escape'].values, num_iters)
+        squared_mean = len([e for e in squared['escape'].values if 'Right' in e]) / len(squared['escape'].values)
+        coin_prob = coin_simultor(num_samples=40)
+
+        """ PLOT """
+        binz=60
+        f, axarr = plt.subplots(2, 1, facecolor=[0.1, 0.1, 0.1])
+        ax, ax2 = axarr[0], axarr[1]
+        self.histogram_plotter(ax, audio_flipflop_bs, color=self.colors['right'], label='FF_aud',
+                               bins=binz, normalised=normalised, alpha=.5)
+        self.histogram_plotter(ax, vis_flipflop_bs, color=self.colors['left'], label='FF_vis',
+                               bins=binz, normalised=normalised, alpha=.5)
+        self.histogram_plotter(ax, twoarms_bs, color=self.colors['central'], label='2A_vis',
+                               bins=binz,  normalised=normalised, alpha=.5)
+
+        ax.axvline(vis_flipflop_mean, linewidth=2, color=self.colors['left'], alpha=.5)
+        ax.axvline(audio_flipflop_mean, linewidth=2, color=self.colors['right'], alpha=.5)
+        ax.axvline(twoarms_flipflop_mean, linewidth=2, color=self.colors['central'], alpha=.5)
+
+        self.histogram_plotter(ax2, squared_bs, color=[.7, .7, .7], label='Squared',
+                               bins=binz, normalised=normalised, alpha=.5)
+        self.histogram_plotter(ax2, coin_prob, color=[.2, .4, .2], label='coin',
+                               bins=binz, normalised=normalised, alpha=.5)
+        ax2.axvline(squared_mean, linewidth=2, color=[.7, .7, .7], alpha=.5)
+
+        ax.set(facecolor=[0.2, 0.2, 0.2], xlim=[0, 1], xticks=np.arange(0, 1+0.1, 0.1))
+        ax2.set(facecolor=[0.2, 0.2, 0.2], xlim=[0, 1], xticks=np.arange(0, 1+0.1, 0.1))
+        make_legend(ax, [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
+        make_legend(ax2, [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
+
+
+        a = 1
+
+    @staticmethod
+    def histogram_plotter(ax, data, color='g', bins=50, label=None, normalised=False, alpha=0.75):
+        if normalised:
+            results, edges = np.histogram(data, bins=bins, normed=True)
+            binWidth = edges[1] - edges[0]
+            ax.bar(edges[:-1], results * binWidth, binWidth, color=color, label=label, alpha=alpha)
+        else:
+            ax.hist(data, color=color, label=label, alpha=alpha)
+
+    def sample_escapes_probabilities(self, tracking_data, num_samples=False, num_iters=50000,
+                                     normalised=True, noise=True, replacement=True):
         sides = ['Left', 'Central', 'Right']
         # get escapes
         maze_configs, origins, escapes, outcomes = [], [], [], []
@@ -105,13 +219,14 @@ class mazecohortprocessor:
         central_escapes = len([b for b in escapes if 'Central' in b ])
 
         print('\nFound {} trials, escape probabilities: {}-Left, {}-Centre'.format(num_trials,
-                                                                             round(left_escapes/num_trials, 2),
-                                                                             round(central_escapes/num_trials, 2)))
+                                                                                   round(left_escapes/num_trials, 2),
+                                                                                   round(central_escapes/num_trials, 2)))
 
         if not num_samples: num_samples = num_trials
         if num_samples > num_trials: raise Warning('Too many samples')
 
         probs = {name:[] for name in sides}
+        noise_std = 1/(math.sqrt(num_samples))**2
         for iter in tqdm(range(num_iters)):
             if not replacement:
                 sel_trials = random.sample(escapes, num_samples)
@@ -120,26 +235,25 @@ class mazecohortprocessor:
                 sel_trials = sel_trials[:num_samples]
             p = 0
             for side in sides:
-                probs[side].append(len([b for b in sel_trials if side in b])/num_samples)
-                p += len([b for b in sel_trials if side in b])/num_samples
+                calculated_probability = len([b for b in sel_trials if side in b])/num_samples
+                p += calculated_probability
+                if noise:
+                    probs[side].append(calculated_probability+np.random.normal(scale=noise_std))
+                else:
+                    probs[side].append(calculated_probability)
+
                 if p > 1: raise Warning('Something went wrong....')
 
         f, ax = plt.subplots(1, 1,  facecolor=[0.1, 0.1, 0.1])
-        ax.set(facecolor=[0.2, 0.2, 0.2])
         basecolor = [.3, .3, .3]
-
         for idx, side in enumerate(probs.keys()):
             if not np.any(np.asarray(probs[side])): continue
-            # sns.kdeplot(probs[side], bw=0.05, shade=True, color=np.add(basecolor, 0.2*idx), label=side, ax=ax)
-            ax.hist(probs[side], color=np.add(basecolor, 0.2*idx), bins = 150,   label=side)
-            # sns.distplot(probs[side], bins=3, label=side, ax=ax)
-            # sns.distplot(probs[side], fit=norm, hist=False, kde=False, norm_hist=True, ax=ax)
+            if not 'Right' in side: continue
+            self.histogram_plotter(ax, probs[side], color=np.add(basecolor, 0.2*idx),
+                                   bins=25, label=side, normalised=normalised)
 
-        # for idx, side in enumerate(probs.keys()):
-        #     if not np.any(np.asarray(probs[side])): continue
-        #     avg = np.mean(probs[side])
-        #     ax.axvline(avg, color=np.add(basecolor, 0.2 * idx), linewidth=4, linestyle=':')
-        #     print('side {} mean {}'.format(side,avg))
+            # ax.hist(probs[side], 50, color=np.add(basecolor, 0.2*idx),  label=side, density=True)
+        ax.set(facecolor=[0.2, 0.2, 0.2], xlim=[0, 1], ylim=[0, 0.25], xticks = np.arange(0, 1+0.1, 0.1))
 
         make_legend(ax, [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
 

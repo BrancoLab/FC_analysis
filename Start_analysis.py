@@ -11,13 +11,11 @@ from Utils.Data_rearrange_funcs import create_cohort, check_session_selected
 from Utils.Messaging import slack_chat_messenger
 from Utils.decorators import clock
 
-from Processing import Processing_main, Processing_maze
+from Processing import Processing_main
 from Plotting import Single_trial_summary
-from Plotting import Maze_cohort_summary
 
 from Config import load_database, update_database, load_name, save_name\
-    , selector_type, selector, plotting_options, exp_type, \
-    extract_rois_background, track_mouse, track_options, \
+    , selector_type, selector, plotting_options, extract_rois_background, track_mouse, track_options, \
     plotting, cohort, processing, debug, send_messages, save_as_new_database, new_name
 
 

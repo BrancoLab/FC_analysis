@@ -45,11 +45,11 @@ def tile_videos():
         edit = cut_crop_video(vidpath=vid_path, save_format=False, cut=True, starts=58, fins=71, ret=True)
         edited.append(edit)
 
-    final = clips_array([[edited[0], edited[1], edited[2]],
-                         [edited[3], edited[4], edited[4]]])
+    final = clips_array([[edited[0], edited[1]],
+                         [edited[2], edited[3]]])
 
     random_id = np.random.randint(1, 10000, 1)
-    final.write_videofile(os.path.join(save_fld, 'tiled_{}'.format(random_id)) + '.mp4', codec='mpeg4')
+    final.write_videofile(os.path.join(save_fld, 'tiled_{}'.format(random_id[0])) + '.mp4')
 
 
 def super_impose_videos():
@@ -82,8 +82,8 @@ if __name__ == "__main__":
     video_to_edit = 'C:\\Users\\Federico\\Documents\\GitHub\\DeepLabCut\\videos' \
                     '\\109-audio_0-0_DeepLabCutlabeled.mp4'
 
-    cut_crop_video(video_to_edit, cut=True, starts=70, fins=76, crop_sel=True , crop_coord=[450, 300, 600, 300],
-                   save_format=['mp4'])
+    # cut_crop_video(video_to_edit, cut=True, starts=70, fins=76, crop_sel=True , crop_coord=[450, 300, 600, 300],
+    #                save_format=['mp4'])
 
-    # tile_videos()
+    tile_videos()
     # super_impose_videos()

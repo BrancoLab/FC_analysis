@@ -16,12 +16,13 @@ matplotlib.rcParams['ytick.color'] = col
 
 plt.rcParams.update(params)
 
+from Processing.Processing_maze_expspecific import flipflop
 import math
 
 arms_colors = dict(left=(255, 0, 0), central=(0, 255, 0), right=(0, 0, 255), shelter=(200, 180, 0),
                         threat=(0, 180, 200))
 
-exp_specifics = {'FlipFlop': flipflop}
+# exp_specifics = {'FlipFlop': flipflop}
 
 
 class mazeprocessor:
@@ -47,10 +48,10 @@ class mazeprocessor:
         pool = ThreadPool(len(funcs))
         [pool.apply(func) for func in funcs]
 
-        if settings is not None:
-            if settings['apply exp-specific'] and session.Metadata['exp'] in exp_specifics.keys():
-                cls = exp_specifics[session.Metadata['exp']]
-                cls()
+        # if settings is not None:
+        #     if settings['apply exp-specific'] and session.Metadata['exp'] in exp_specifics.keys():
+        #         cls = exp_specifics[session.Metadata['exp']]
+        #         cls()
 
     # UTILS ############################################################################################################
     def get_templates(self):
@@ -128,6 +129,9 @@ class mazeprocessor:
 
                     min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)  # location of best template match
                     top_left = (max_loc[0] + hor_sum, max_loc[1] + ver_sum)
+                if max_val < 0.60:
+                    print('discarded template: {}'.format(template))
+                    continue
 
                 # Get location and mark on the frame the position of the template
                 bottom_right = (top_left[0] + w, top_left[1] + h)
@@ -322,8 +326,8 @@ class mazeprocessor:
                         self.get_trial_outcome(data, maze_configuration)
                         self.get_status_at_timepoint(data)  # get status at stim
 
-                        vtes = {r: self.get_vte_in_roi(data, roi=r) for r in rois_for_hesitations}
-                        self.session.Tracking[trial_name].processing['vtes'] = vtes
+                        # vtes = {r: self.get_vte_in_roi(data, roi=r) for r in rois_for_hesitations}
+                        # self.session.Tracking[trial_name].processing['vtes'] = vtes
 
     @staticmethod
     def get_trial_length(trial):
