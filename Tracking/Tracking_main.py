@@ -144,6 +144,9 @@ class Tracking():
                         start_frame = int(stim-(cfg['fast track wnd']*self.fps))
                         stop_frame = int(stim+(cfg['fast track wnd']*self.fps))
 
+                        if start_frame <= 0:
+                            raise Warning('Something went wrong when defining trial start time')
+
                         # Generate empty trial object and add it into the database
                         trial_metadata = create_trial_metadata(self.videoname, stim_type, start_frame, stop_frame,
                                                                self.session['Metadata'].video_file_paths[vid_num])
