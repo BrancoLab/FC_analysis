@@ -67,20 +67,29 @@ class mazeprocessor:
         maze_templates = [os.path.join(templates_fld, f) for f in os.listdir(templates_fld) if 'maze_config' in f]
         return base_fld, bg_folder, platf_templates, bridge_templates, maze_templates
 
-    def get_maze_configuration(self, frame):
+    def get_maze_configuration(self, frame, debug=False):
         """ Uses templates to check in which configuration the maze in at a give time point during an exp  """
         base_fld, _, _, _, maze_templates = self.get_templates()
         maze_templates = [t for t in maze_templates if 'default' not in t]
         maze_templates_dict = {name: cv2.imread(os.path.join(base_fld, name)) for name in maze_templates}
 
-        matches = []
+        v, matches = 0, []
         for name, template in maze_templates_dict.items():
             template = template[1:, 1:]  # the template needs to be smaller than the frame
             res = cv2.matchTemplate(frame, template, cv2.TM_CCOEFF_NORMED)
             _, max_val, _, _ = cv2.minMaxLoc(res)
+            if max_val > v:
+                v = max_val
+                best_match =  name
             matches.append(max_val)
+
         if not matches: return 'Static'
-        best_match = maze_templates[matches.index(max(matches))]
+        # best_match = maze_templates[matches.index(max(matches))]
+        if debug:
+            plt.figure()
+            plt.imshow(frame),
+            print(best_match)
+            a = 1
         return os.path.split(best_match)[1].split('__')[0]
 
     def get_maze_components(self):
@@ -319,6 +328,7 @@ class mazeprocessor:
                         videonum = int(trial_name.split('_')[1].split('-')[0])
                         video = self.session.Metadata.video_file_paths[videonum][0]
                         grabber = cv2.VideoCapture(video)
+                        grabber.set(1, startf_num);
                         ret, frame = grabber.read()
 
                         maze_configuration = self.get_maze_configuration(frame)
