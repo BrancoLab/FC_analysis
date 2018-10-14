@@ -14,7 +14,8 @@ from math import factorial, atan2, degrees
 from collections import namedtuple
 
 # Image and video processing
-import cv2
+try: import cv2
+except: pass
 from moviepy.editor import VideoFileClip
 from moviepy.video.fx import crop
 
@@ -59,8 +60,8 @@ from tempfile import mkdtemp
 from nptdms import TdmsFile
 import psutil
 import pyexcel
-import yaml
-
+try: import yaml
+except: pass
 
 # Config
 from Config import save_name

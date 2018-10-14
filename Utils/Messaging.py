@@ -1,4 +1,5 @@
-from slackclient import SlackClient
+try: from slackclient import SlackClient
+except: pass
 import requests
 import os
 

@@ -16,11 +16,14 @@ matplotlib.rcParams['ytick.color'] = col
 
 plt.rcParams.update(params)
 
-import array
+import platform
 import math
 import random
 import seaborn as sns
 from scipy import stats
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn import metrics
 
 from Plotting.Plotting_utils import make_legend, save_all_open_figs
 from Utils.Data_rearrange_funcs import flatten_list
@@ -35,8 +38,13 @@ arms_colors = dict(left=(255, 0, 0), central=(0, 255, 0), right=(0, 0, 255), she
 class MazeCohortProcessor:
     def __init__(self, cohort=None, load=False):
 
-        fig_save_fld = 'D:\\Dropbox (UCL - SWC)\\Dropbox (UCL - SWC)\\Rotation_vte\\Presentations\\181017_graphs'
-        self.data_fld = "D:\\Dropbox (UCL - SWC)\\Dropbox (UCL - SWC)\\Rotation_vte\\analysis"
+        if 'Windows' in platform.system():
+            fig_save_fld = 'D:\\Dropbox (UCL - SWC)\\Dropbox (UCL - SWC)\\Rotation_vte\\Presentations\\181017_graphs'
+            self.data_fld = "D:\\Dropbox (UCL - SWC)\\Dropbox (UCL - SWC)\\Rotation_vte\\analysis"
+        else:
+            fig_save_fld = '/Users/federicoclaudi/desktop'
+            self.data_fld = "/Users/federicoclaudi/desktop"
+
         self.save_name = 'alltrials_pdf'
 
         self.colors = dict(left=[.2, .3, .7], right=[.7, .3, .2], centre=[.3, .7, .2], center=[.3, .7, .2],
@@ -53,6 +61,8 @@ class MazeCohortProcessor:
             self.load_dataframe()
 
         self.plot_status_stim()
+
+        self.logreg_analaysis()
 
         self.plot_bootstrapped_distributions()
 
@@ -212,20 +222,22 @@ class MazeCohortProcessor:
 
         datas = [ff_vis, ff_aud, twoarm]
         nn = [ff_vis_ntrials, ff_aud_ntrials, twoarm_ntrials]
-
-        for i, d in enumerate(datas):  # TODO change to adjusted position
-            axarr[i].scatter(np.asarray([s.status.x for s in d['status'].values])[:],
-                             np.asarray([s.status.y for s in d['status'].values])[:],
-                             c=np.asarray([colors[o] for o in d['origin'].values]), s=25)
-            axarr[i].set(facecolor=[.2, .2, .2], xlim=[350, 550], ylim=[400, 600])
+        colorby = ['origin', 'origin', 'origin', 'escape', 'escape', 'escape',
+                   'Orientation',  'Orientation',  'Orientation']
 
         for i, d in enumerate(datas):
-            axarr[i+3].scatter(np.asarray([s.status.x for s in d['status'].values])[:],
-                             np.asarray([s.status.y for s in d['status'].values])[:],
-                             c=np.asarray([colors[o] for o in d['escape'].values]), s=25)
-            axarr[i+3].set(facecolor=[.2, .2, .2], xlim=[350, 550], ylim=[400, 600])
+            var = colorby[i]
+            data = np.asarray([s[1][var] for s in d['status']]).reshape(-1, 1)
+            if var == 'Orientation':
+                while np.any(data[data > 360]):
+                    data[data > 360] -= 360
+            xpos = np.asarray([s[1]['adjusted x'] for s in d['status']])[:]
+            ypos = np.asarray([s[1]['adjusted y'] for s in d['status']])[:]
+            col = np.asarray([colors[o] for o in d[var].values])
 
-        # TODO finish with orientation at stim onset
+            axarr[i].scatter(xpos, ypos, s=25, c=col)
+            axarr[i].set(title='Colored by {}'.format(var), facecolor=[.2, .2, .2], xlim=[-50, 50], ylim=[400, 600])
+
 
         a = 1
 
@@ -245,6 +257,55 @@ class MazeCohortProcessor:
 
     def load_dataframe(self):
         self.triald_df = pd.read_pickle(os.path.join(self.data_fld, self.save_name))
+
+    def logreg_analaysis(self):
+        """ pool the data from squared mazes for non Center escape trials and use these data to train the
+            logistic regression model """
+
+        squared = self.triald_df.loc[(self.triald_df['experiment'] == 'Square Maze') |
+                                     (self.triald_df['experiment'] == 'TwoAndahalf Maze')]
+        squared = squared[squared['escape'] != 'Central_TtoX_bridge']
+        squared = squared[squared['escape'] != 'Central_TtoX_bridge']
+        squared = squared[squared['escape'] != 'Shelter_platform']
+
+        ntrials = len(squared)
+        variables = ['adjusted x', 'adjusted y', 'Orientation']
+        esc = squared['escape'].values.reshape(-1, 1)
+        f, axarr = plt.subplots(len(variables), 1, facecolor=[.1, .1, .1])
+
+        for i, var in enumerate(variables):
+            data = np.asarray([s[1][var] for s in squared['status']]).reshape(-1, 1)
+            if var == 'Orientation':
+                while np.any(data[data > 360]):
+                    data[data > 360] -= 360
+
+            # Split dataset into training and test datasets
+            x_train, x_test, y_train, y_test = train_test_split(data, esc, test_size=0.25, random_state=0)
+
+            # Create the mode, fit it to the test data and use the trained model to make predictions on the test set
+            logisticRegr = LogisticRegression()
+            logisticRegr.fit(x_train, y_train)
+            predictions = logisticRegr.predict(x_test)
+            predictions_probabilities = logisticRegr.predict_proba(x_test)
+
+            axarr[i].plot(x_test, predictions_probabilities[:, 0])
+            axarr[i].plot(x_test, predictions_probabilities[:, 1])
+            axarr[i].set(title=var, facecolor=[.2, .2, .2])
+
+            print(logisticRegr.classes_)
+
+        a = 1
+
+        # Measure score and confusion matrix, plot confusion matrix
+        # score = logisticRegr.score(x_test, y_test)
+        # cm = metrics.confusion_matrix(y_test, predictions)
+        #
+        # plt.figure(figsize=(9, 9))
+        # sns.heatmap(cm, annot=True, fmt=".3f", linewidths=.5, square=True, cmap='Blues_r')
+        # plt.ylabel('Actual label')
+        # plt.xlabel('Predicted label')
+        # all_sample_title = 'Accuracy Score: {0}'.format(score)
+        # plt.title(all_sample_title, size=15)
 
 
 """ Example of a logistic regression analysis with sklearn """
