@@ -8,11 +8,11 @@ params = {'legend.fontsize': 16,
 col = [0, 0, 0]
 # col = [.8, .8, .8]
 matplotlib.rc('axes', edgecolor=col)
-matplotlib.rcParams['text.color'] = col
-matplotlib.rcParams['axes.labelcolor'] = col
-matplotlib.rcParams['axes.labelcolor'] = col
-matplotlib.rcParams['xtick.color'] = col
-matplotlib.rcParams['ytick.color'] = col
+matplotlib.rcParams['text.color'] = [.8, .8, .8]
+matplotlib.rcParams['axes.labelcolor']  =[.8, .8, .8]
+matplotlib.rcParams['axes.labelcolor'] = [.8, .8, .8]
+matplotlib.rcParams['xtick.color'] = [.8, .8, .8]
+matplotlib.rcParams['ytick.color'] = [.8, .8, .8]
 
 plt.rcParams.update(params)
 
@@ -36,7 +36,7 @@ arms_colors = dict(left=(255, 0, 0), central=(0, 255, 0), right=(0, 0, 255), she
 
 
 class MazeCohortProcessor:
-    def __init__(self, cohort=None, store_tracking=False, load=False):
+    def __init__(self, cohort=None, store_tracking=True, load=False):
 
         if 'Windows' in platform.system():
             fig_save_fld = 'D:\\Dropbox (UCL - SWC)\\Dropbox (UCL - SWC)\\Rotation_vte\\Presentations\\181017_graphs'
@@ -55,6 +55,8 @@ class MazeCohortProcessor:
             metad = cohort.Metadata[name]
             tracking_data = cohort.Tracking[name]
             self.from_trials_to_dataframe(metad, tracking_data, store_tracking)
+
+            self.adjust_xypos()
         else:
             name = 'all_trials'
             self.load_dataframe()
@@ -76,7 +78,8 @@ class MazeCohortProcessor:
         a = 1
 
 ########################################################################################################################
-
+    ###  DATA SEGMENTATION FUNCTIONS ####
+########################################################################################################################
     def from_trials_to_dataframe(self, metad, tracking_data, store_tracking):
         t = namedtuple('trial', 'name session origin escape stimulus experiment '
                                 'configuration atstim tracking')
@@ -157,57 +160,187 @@ class MazeCohortProcessor:
             probs.append(round(n_r_escapes/n_escapes, 2))
         return probs, ntrials
 
+    def adjust_xypos(self):
+        for n in range(len(self.triald_df)):
+            tr = self.triald_df.iloc[n]
+            threat_loc = tr['tracking'].processing['Trial outcome']['maze_rois']['Threat_platform']
+
+            threat_loc = (threat_loc.topleft[0] + (threat_loc.bottomright[0] - threat_loc.topleft[0]) / 2,
+                          threat_loc.topleft[1] + (threat_loc.bottomright[1] - threat_loc.topleft[1]) / 2)
+
+            p = (tr['tracking'].processing['status at stimulus'][1]['x'],
+                 tr['tracking'].processing['status at stimulus'][1]['y'])
+            adjp = (p[0]-threat_loc[0], p[1]-threat_loc[1])
+
+            tr['atstim'][1]['adjusted x'] = adjp[0]
+            tr['atstim'][1]['adjusted y'] = adjp[1]
+        self.triald_df['tracking'] = None
+        self.save_dataframe()
+
+########################################################################################################################
+    ###  FOR PRESENTATION ####
 ########################################################################################################################
 
     def for_labmeeting(self):
-        facecolor = [.2, .2, .2]
-        # Plot p(R) for squared and flipflop_r maze
-        f, axarr = plt.subplots(4, 1, facecolor=[.1, .1, .1])
+        cols=dict(
+            flipflop=[233/250, 150/255, 122/255],
+            twoarms=[173/255, 216/250, 230/255],
+            square=[216/255, 191/255, 216/255],
+            coin=[1.0, 1.0, 1.0]
+        )
 
+        # Set up digure
+        f = plt.figure(facecolor=[.1, .1, .1])
+        f.tight_layout()
+        axarr = []
+        nrows, ncols = 4, 6
+        facecolor = [.2, .2, .2]
+        axarr.append(plt.subplot2grid((nrows, ncols), (0, 0), colspan=2))
+        axarr.append(plt.subplot2grid((nrows, ncols), (0, 2), colspan=2))
+
+        for i in range(3): axarr.append(plt.subplot2grid((nrows, ncols), (1, 2*i), colspan=2))
+        for i in range(ncols): axarr.append(plt.subplot2grid((nrows, ncols), (2, i), colspan=1))
+        for i in range(ncols): axarr.append(plt.subplot2grid((nrows, ncols), (3, i), colspan=1))
+        axarr.append(plt.subplot2grid((nrows, ncols), (0, 4), colspan=1))
+        axarr.append(plt.subplot2grid((nrows, ncols), (0, 5), colspan=1))
+
+        # get data
         ff_r, ntr_ff_r, _, _ = self.get_flipflop_data()
+        ta, ntr_ta = self.get_twoarms_data()
         sq, ntr_sq = self.get_square_data()
 
+        # plot the probability of going right for each experiment
         pr_ff_r = len(ff_r[(ff_r['escape'] == 'Right_TtoM_platform') | (ff_r['escape'] == 'Right_TtoM_bridge')])/ntr_ff_r
+        pr_ta = len(ta[(ta['escape'] == 'Right_TtoM_platform') | (ta['escape'] == 'Right_TtoM_bridge')])/ntr_ta
         pr_sq = len(sq[(sq['escape'] == 'Right_TtoM_platform') | (sq['escape'] == 'Right_TtoM_bridge')])/ntr_sq
-        axarr[0].bar(1, pr_ff_r, color=self.colors['left'], label='p(R) - flipflop')
-        axarr[0].bar(0, pr_sq, color=self.colors['right'], label='p(R) - squared')
-        axarr[0].set(title='p(R)', ylabel='p(R)', ylim=[0, 1], facecolor=facecolor)
+        axarr[0].bar(1, pr_ff_r, color=cols['flipflop'], label='flipflop {}tr'.format(ntr_ff_r))
+        axarr[0].bar(2, pr_ta, color=cols['twoarms'], label='two arms {}tr'.format(ntr_ta))
+        axarr[0].bar(0, pr_sq, color=cols['square'], label='squared, {}tr'.format(ntr_sq))
+        axarr[0].axhline(.5, color=[.8, .8, .8], linestyle=':', linewidth=.5)
+        axarr[0].set(title='p(R)', ylabel='p(R)', ylim=[0, 1], xlim=[-0.5, 2.5], facecolor=facecolor)
         make_legend(axarr[0], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
 
         # Plot the bootstrapped distributions
         skip = True
         if not skip:
-            ff_r_bs = self.bootstrap(ff_r['escape'].values, 50000, num_samples=ntr_ff_r)
-            sq_bs = self.bootstrap(sq['escape'].values, 50000, num_samples=ntr_sq)
-            coin = self.coin_simultor(num_samples=ntr_sq)
+            noise = True
+            niter = 200000
+            nsamples=39
+            ff_r_bs = self.bootstrap(ff_r['escape'].values, niter, num_samples=nsamples, noise=noise)
+            ta_bs = self.bootstrap(ta['escape'].values, niter, num_samples=nsamples, noise=noise)
+            sq_bs = self.bootstrap(sq['escape'].values, niter, num_samples=nsamples, noise=noise)
+            coin = self.coin_simultor(num_samples=100, num_iters=niter, noise=noise)
 
-            binz = 60
-            self.histogram_plotter(axarr[1], ff_r_bs, color=self.colors['left'], label='flipflop',
-                                   bins=binz, normalised=True, alpha=.5)
-            self.histogram_plotter(axarr[1], sq_bs, color=self.colors['right'], label='squared',
-                                   bins=binz, normalised=True, alpha=.5)
-            self.histogram_plotter(axarr[1], coin, color=self.colors['center'], label='binomial',
-                                   bins=binz, normalised=True, alpha=.5)
+            binz, norm = 250, False
+            self.histogram_plotter(axarr[1], coin, color=cols['coin'], label='binomial',
+                                   bins=binz, normalised=norm, alpha=.35, just_outline=False)
+            self.histogram_plotter(axarr[1], ff_r_bs, color=cols['flipflop'], label='flipflop',
+                                   bins=binz, normalised=norm, alpha=.75)
+            self.histogram_plotter(axarr[1], ta_bs, color=cols['twoarms'], label='two arms',
+                                   bins=binz, normalised=norm, alpha=.75)
+            self.histogram_plotter(axarr[1], sq_bs, color=cols['square'], label='squared',
+                                   bins=binz, normalised=norm, alpha=.75)
             axarr[1].set(title='bootstrapped p(R)', ylabel='frequency', xlabel='p(R)', ylim=[0, 0.08],
                          xlim=[0,1],  xticks=np.arange(0, 1+0.1, 0.1), facecolor=facecolor)
             make_legend(axarr[1], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
 
+            f, axarr = plt.subplots(4, 1)
+            self.histogram_plotter(axarr[0], coin, color=cols['coin'], label='binomial',
+                                   bins=binz, normalised=norm, alpha=.5, just_outline=False)
+            self.histogram_plotter(axarr[1], ff_r_bs, color=cols['flipflop'], label='flipflop',
+                                   bins=binz, normalised=norm, alpha=.75)
+            self.histogram_plotter(axarr[2], ta_bs, color=cols['twoarms'], label='two arms',
+                                   bins=binz, normalised=norm, alpha=.75)
+            self.histogram_plotter(axarr[3], sq_bs, color=cols['square'], label='squared',
+                                   bins=binz, normalised=norm, alpha=.75)
+            for ax in axarr:
+                ax.set(title='bootstrapped p(R)', ylabel='frequency', xlabel='p(R)',
+                             xlim=[0, 1], xticks=np.arange(0, 1 + 0.1, 0.1), facecolor=facecolor)
+                make_legend(axarr[1], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
+
         # Look at probs of individual mice in the squared dataset
         pr_ff_r_bymouse, ntr_ff_r_bymouse = self.get_probability_bymouse(ff_r)
+        pr_ta_bymouse, ntr_ta_bymouse = self.get_probability_bymouse(ta)
         pr_sq_bymouse, ntr_sq_bymouse = self.get_probability_bymouse(sq)
 
-        axarr[2].bar(np.linspace(0, len(pr_ff_r_bymouse), len(pr_ff_r_bymouse)), sorted(pr_ff_r_bymouse),
-                     color=self.colors['left'], label='ff by mouse')
-        axarr[3].bar(np.linspace(0, len(pr_sq_bymouse), len(pr_sq_bymouse)), sorted(pr_sq_bymouse),
-                     color=self.colors['right'], label='sq by mouse')
-        axarr[2].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0,1], facecolor=facecolor)
-        axarr[3].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0,1], facecolor=facecolor)
+        axarr[2].bar(np.linspace(0, len(pr_sq_bymouse), len(pr_sq_bymouse)), sorted(pr_sq_bymouse),
+                     color=cols['square'], label='sq by mouse')
+        axarr[3].bar(np.linspace(0, len(pr_ff_r_bymouse), len(pr_ff_r_bymouse)), sorted(pr_ff_r_bymouse),
+                     color=cols['flipflop'], label='ff by mouse')
+        axarr[4].bar(np.linspace(0, len(pr_ta_bymouse), len(pr_ta_bymouse)), sorted(pr_ta_bymouse),
+                     color=cols['twoarms'], label='ta by mouse')
 
-        self.probR_given()
+        axarr[2].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0, 1.1], facecolor=facecolor,
+                     xticks=[],  xlim=[-0.5, len(pr_sq_bymouse)+0.5])
+        axarr[3].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0, 1.1], facecolor=facecolor,
+                     xticks=[], xlim=[-0.5, len(pr_ff_r_bymouse) + 0.5])
+        axarr[4].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0, 1.1], facecolor=facecolor,
+                     xticks=[], xlim=[-0.5, len(pr_ta_bymouse) + 0.5])
 
+        # Scatter plots of status at reaction
+        self.scatter_plotter(axarr[7], ff_r,  'origin', cols, coltag='flipflop')
+        self.scatter_plotter(axarr[8], ff_r,'escape',  cols, coltag='flipflop')
+        self.scatter_plotter(axarr[14], ff_r, 'Orientation', cols, coltag='flipflop')
+
+        self.scatter_plotter(axarr[9], ta, 'origin', cols, coltag='twoarms')
+        self.scatter_plotter(axarr[10], ta, 'escape', cols, coltag='twoarms')
+        self.scatter_plotter(axarr[12], ta, 'Orientation', cols, coltag='twoarms')
+
+        self.scatter_plotter(axarr[5], sq, 'origin',  cols, coltag='square')
+        self.scatter_plotter(axarr[6], sq, 'escape', cols, coltag='square')
+        self.scatter_plotter(axarr[16], sq, 'Orientation', cols, coltag='square')
+
+        # BOX plot of ntrials per mouse grouped by exp
+        data = [ntr_sq_bymouse, ntr_ff_r_bymouse, ntr_ta_bymouse]
+        labels = ['square', 'flipflop', 'twoarms']
+        bplot = axarr[17].boxplot(data,
+                                   vert=True,  # vertical box alignment
+                                   patch_artist=True,  # fill with color
+                                   labels=labels)  # will be used to label x-ticks
+
+        for patch, colname in zip(bplot['boxes'], labels):
+            patch.set_facecolor(cols[colname])
+
+        axarr[17].set(title='n trials per mouse by exp', facecolor=facecolor, ylabel='num trials', xticks=[])
+        make_legend(axarr[17], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
+
+        # scatterplot ntrial for all mice
+        sessions = set(self.triald_df['session'])
+        ntr_all = [len(self.triald_df[self.triald_df['session']==s]) for s in sessions]
+        bplot = axarr[18].boxplot(ntr_all, vert=True, patch_artist=True, widths=5)
+
+        axarr[18].scatter(np.linspace(5, len(ntr_all)+5, len(ntr_all)), sorted(ntr_all), s=55, color=[.6, .6, .6])
+
+        axarr[18].set(title='n trials by mouse', facecolor=facecolor, ylabel='num trials', xlim=[-3,len(ntr_all)+7],
+                      xticks=[])
+        for patch, colname in zip(bplot['boxes'], labels):
+            patch.set_facecolor([.8, .8, .8])
+
+        # Probability of escape given origin
+        self.prob_originescape(ff_r, axarr[13],cmap='Reds')
+        self.prob_originescape(sq, axarr[11],cmap='Blues')
+        self.prob_originescape(ta, axarr[15],cmap='Oranges')
+
+        # Calulate Welche's t-test
+        welch_ffvis_twoarms = stats.ttest_ind([1 if 'Right' in e else 0 for e in ff_r['escape'].values],
+                                              [1 if 'Right' in e else 0 for e in ta['escape'].values],
+                                              equal_var=False)
+        welch_ffaud_twoarms = stats.ttest_ind([1 if 'Right' in e else 0 for e in ff_r['escape'].values],
+                                              [1 if 'Right' in e else 0 for e in sq['escape'].values],
+                                              equal_var=False)
+        welch_allff_twoarms = stats.ttest_ind([1 if 'Right' in e else 0 for e in sq['escape'].values],
+                                              [1 if 'Right' in e else 0 for e in ta['escape'].values],
+                                              equal_var=False)
+
+
+
+        # self.probR_given()
+        f.tight_layout()
+        plt.show()
         a = 1
 
-
+########################################################################################################################
+    ###  PROBABILITY FUNCTIONS ####
 ########################################################################################################################
     @staticmethod
     def bootstrap(data, num_iters, num_samples=False, tag='Right', noise=True, replacement=True):
@@ -228,14 +361,41 @@ class MazeCohortProcessor:
         return res
 
     @staticmethod
-    def coin_simultor(num_samples=38, num_iters=50000):
+    def coin_simultor(num_samples=38, num_iters=50000, noise=True):
+        if not num_samples: num_samples = 100
         probs = []
         noise_std = 1 / (math.sqrt(num_samples)) ** 2
         for _ in tqdm(range(num_iters)):
             data = [random.randint(0, 1) for _ in range(num_samples)]
-            prob_one = len([n for n in data if n == 1]) / len(data) + np.random.normal(scale=noise_std)
+            if noise:
+                prob_one = len([n for n in data if n == 1]) / len(data) + np.random.normal(scale=noise_std)
+            else:
+                prob_one = len([n for n in data if n == 1]) / len(data)
             probs.append(prob_one)
         return probs
+
+    def prob_originescape(self, data, ax, cmap='hot'):
+        for _ in range(5):
+            p = dict(lori_lesc=0,
+                     lori_resc=0,
+                     rori_lesc=0,
+                     rori_resc=0)
+
+            for n in range(len(data)):
+                d = data.iloc[n]
+                if 'left' in d['origin'].lower():
+                    if 'left' in d['escape'].lower(): p['lori_lesc'] += 1
+                    else: p['lori_resc'] += 1
+                else:
+                    if 'left' in d['escape'].lower(): p['rori_lesc'] += 1
+                    else: p['rori_resc'] += 1
+
+        tot = len(data)
+
+        probs = [[p['lori_lesc']/tot, p['rori_lesc']/tot],
+                 [p['lori_resc']/tot, p['rori_resc']/tot]]
+        sns.heatmap(probs, ax=ax, vmin=0, vmax=1, center=0.25, annot=True,  linewidths=.25, cmap=cmap,
+                    xticklabels=['L origin', 'R origin'], yticklabels=['L escape', 'R escape'])
 
     def probR_given(self):
         def calc_probs(data, ntrials):
@@ -275,6 +435,116 @@ class MazeCohortProcessor:
         print('\nProcessing SQUARED maze, {} R trials'.format(ntrials_sq))
         calc_probs(squared, ntrials_sq)
 
+    def logreg_analaysis(self):
+        """ pool the data from squared mazes for non Center escape trials and use these data to train the
+            logistic regression model """
+
+        squared = self.triald_df.loc[(self.triald_df['experiment'] == 'Square Maze') |
+                                     (self.triald_df['experiment'] == 'TwoAndahalf Maze')]
+        squared = squared[squared['escape'] != 'Central_TtoX_bridge']
+        squared = squared[squared['escape'] != 'Central_TtoX_bridge']
+        squared = squared[squared['escape'] != 'Shelter_platform']
+
+        ntrials = len(squared)
+        variables = ['adjusted x', 'adjusted y', 'Orientation']
+        esc = squared['escape'].values.reshape(-1, 1)
+        f, axarr = plt.subplots(len(variables), 1, facecolor=[.1, .1, .1])
+
+        for i, var in enumerate(variables):
+            data = np.asarray([s[1][var] for s in squared['atstim']]).reshape(-1, 1)
+            if var == 'Orientation':
+                while np.any(data[data > 360]):
+                    data[data > 360] -= 360
+
+            # Split dataset into training and test datasets
+            x_train, x_test, y_train, y_test = train_test_split(data, esc, test_size=0.25, random_state=0)
+
+            # Create the mode, fit it to the test data and use the trained model to make predictions on the test set
+            logisticRegr = LogisticRegression()
+            logisticRegr.fit(x_train, y_train)
+            predictions = logisticRegr.predict(x_test)
+            predictions_probabilities = logisticRegr.predict_proba(x_test)
+
+            axarr[i].plot(x_test, predictions_probabilities[:, 0])
+            axarr[i].plot(x_test, predictions_probabilities[:, 1])
+            axarr[i].set(title=var, facecolor=[.2, .2, .2])
+
+        a = 1
+
+########################################################################################################################
+###  PLOTTING FUNCTIONS ####
+########################################################################################################################
+    @staticmethod
+    def histogram_plotter(ax, data, color='g', just_outline=False, bins=50, label=None, normalised=False, alpha=0.75):
+        if just_outline:
+            edgecol = color
+            color = (0.2, 0.2, 0.1, 1)
+            alpha=0.25
+        else:
+            edgecol = None
+        lwidth = 1.25
+
+        if normalised:
+            results, edges = np.histogram(data, bins=bins, normed=True)
+            binWidth = edges[1] - edges[0]
+            ax.bar(edges[:-1], results * binWidth, binWidth, edgecolor=edgecol, fc=color,
+                   label=label, alpha=alpha, lw=lwidth)
+        else:
+            ax.hist(data,  edgecolor=edgecol, fc=color, bins=bins, label=label, alpha=alpha, lw=lwidth)
+
+    @staticmethod
+    def scatter_plotter(ax, data, key, cols, coltag=None):
+        c1, c2, c3 = [.98, .98, .98], [.5, .5, .5], [.65, .65, .65]
+        cc = [c3, c2, c1]
+
+        if not 'Orientation' in key:
+            col_keys = list(set([string.split('_')[0] for string in data[key]
+                                 if not 'Central' in string and not 'Threat' in string and not 'Shelter' in string]))
+            keys = set(data[key])
+            for i, k in enumerate(keys):
+                if 'Central' in k or 'Threat' in k or 'Shelter' in k: continue
+                col_idx = col_keys.index(k.split('_')[0])
+                d = data[data[key]==k]
+                pos = [(s.status['adjusted x'], s.status['adjusted y']) for s in d['atstim']]
+                if col_keys[col_idx] =='Right':
+                    color = cols[coltag]
+                else:
+                    color = cc[col_idx]
+                ax.scatter([p[0] for p in pos], [p[1] for p in pos], s=35, alpha=.5, color=color,
+                           label=col_keys[col_idx])
+            ylim = [50, -75]
+        else:
+            d = data[(data['escape'] == 'Right_TtoM_bridge') | (data['escape'] == 'Right_TtoM_platform')]
+            pos = [(s.status['adjusted x'], s.status['adjusted y']) for s in d['atstim']]
+            oris = np.asarray([s[1]['Orientation'] for s in d['atstim']])
+            while np.any(oris[oris>360]): oris[oris>360] -= 360
+            norm = matplotlib.colors.Normalize(vmin=0, vmax=360)
+            sc = ax.scatter([p[0] for p in pos], [p[1] for p in pos], s=35, alpha=.5, norm=norm, c=oris, cmap='bwr')
+            plt.colorbar(sc, orientation='horizontal', ax=ax)
+            ylim = [50, -65]
+
+        ax.set(title='Colored by {}'.format(key), facecolor=[.2, .2, .2], xlim=[-65, 65], ylim=ylim,
+               xlabel='adjusted x pos', ylabel='adjusted y pos')
+        make_legend(ax, [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
+
+
+
+
+########################################################################################################################
+###  LOADING and SAVING FUNCTIONS ####
+########################################################################################################################
+
+    def save_dataframe(self):
+        import dill as pickle
+        with open(os.path.join(self.data_fld, self.save_name), "wb") as dill_file:
+            pickle.dump(self.triald_df, dill_file)
+
+    def load_dataframe(self):
+        self.triald_df = pd.read_pickle(os.path.join(self.data_fld, self.save_name))
+
+########################################################################################################################
+###  OLD ####
+########################################################################################################################
     def plot_trajectories_at_roi(self, roi='Threat'):
         """ plot the tracjectory (adjusted to shelter position) during the escape as the mouse crosses the rois
          listed"""
@@ -488,60 +758,6 @@ class MazeCohortProcessor:
                 axarr[i].set(title='Colored by {}'.format(var), facecolor=[.2, .2, .2], xlim=[-50, 50], ylim=[400, 600])
 
         a = 1
-
-    @staticmethod
-    def histogram_plotter(ax, data, color='g', bins=50, label=None, normalised=False, alpha=0.75):
-        if normalised:
-            results, edges = np.histogram(data, bins=bins, normed=True)
-            binWidth = edges[1] - edges[0]
-            ax.bar(edges[:-1], results * binWidth, binWidth, color=color, label=label, alpha=alpha)
-        else:
-            ax.hist(data, color=color, label=label, alpha=alpha)
-
-    def save_dataframe(self):
-        import dill as pickle
-        with open(os.path.join(self.data_fld, self.save_name), "wb") as dill_file:
-            pickle.dump(self.triald_df, dill_file)
-
-    def load_dataframe(self):
-        self.triald_df = pd.read_pickle(os.path.join(self.data_fld, self.save_name))
-
-    def logreg_analaysis(self):
-        """ pool the data from squared mazes for non Center escape trials and use these data to train the
-            logistic regression model """
-
-        squared = self.triald_df.loc[(self.triald_df['experiment'] == 'Square Maze') |
-                                     (self.triald_df['experiment'] == 'TwoAndahalf Maze')]
-        squared = squared[squared['escape'] != 'Central_TtoX_bridge']
-        squared = squared[squared['escape'] != 'Central_TtoX_bridge']
-        squared = squared[squared['escape'] != 'Shelter_platform']
-
-        ntrials = len(squared)
-        variables = ['adjusted x', 'adjusted y', 'Orientation']
-        esc = squared['escape'].values.reshape(-1, 1)
-        f, axarr = plt.subplots(len(variables), 1, facecolor=[.1, .1, .1])
-
-        for i, var in enumerate(variables):
-            data = np.asarray([s[1][var] for s in squared['atstim']]).reshape(-1, 1)
-            if var == 'Orientation':
-                while np.any(data[data > 360]):
-                    data[data > 360] -= 360
-
-            # Split dataset into training and test datasets
-            x_train, x_test, y_train, y_test = train_test_split(data, esc, test_size=0.25, random_state=0)
-
-            # Create the mode, fit it to the test data and use the trained model to make predictions on the test set
-            logisticRegr = LogisticRegression()
-            logisticRegr.fit(x_train, y_train)
-            predictions = logisticRegr.predict(x_test)
-            predictions_probabilities = logisticRegr.predict_proba(x_test)
-
-            axarr[i].plot(x_test, predictions_probabilities[:, 0])
-            axarr[i].plot(x_test, predictions_probabilities[:, 1])
-            axarr[i].set(title=var, facecolor=[.2, .2, .2])
-
-        a = 1
-
         # Measure score and confusion matrix, plot confusion matrix
         # score = logisticRegr.score(x_test, y_test)
         # cm = metrics.confusion_matrix(y_test, predictions)
