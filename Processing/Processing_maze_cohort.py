@@ -59,21 +59,183 @@ class MazeCohortProcessor:
             name = 'all_trials'
             self.load_dataframe()
 
+
+        self.for_labmeeting()
+
         # self.plot_trajectories_at_roi(roi=['Threat_platform', 'Left_med_platform', 'Right_med_platform'])
-        if store_tracking:
-            self.plot_escape_trajectories()
-        self.plot_status_stim()
-
-        self.logreg_analaysis()
-
-        self.plot_bootstrapped_distributions()
+        # if store_tracking:
+        #     self.plot_escape_trajectories()
+        # self.plot_status_stim()
+        #
+        # self.logreg_analaysis()
+        #
+        # self.plot_bootstrapped_distributions()
 
         save_all_open_figs(target_fld=fig_save_fld, name=name, format='svg')
         plt.show()
         a = 1
 
+########################################################################################################################
+
+    def from_trials_to_dataframe(self, metad, tracking_data, store_tracking):
+        t = namedtuple('trial', 'name session origin escape stimulus experiment '
+                                'configuration atstim tracking')
+        data = []
+        for trial in tracking_data.trials:
+            outcome = trial.processing['Trial outcome']['trial_outcome']
+            if not outcome:
+                print(trial.name, ' no escape')
+                continue
+            else:
+                tr_sess_id = int(trial.name.split('-')[0])
+                for session in metad.sessions_in_cohort:
+                    id = session[1].session_id
+                    exp = None
+                    if id == tr_sess_id:
+                        exp = session[1].experiment
+                        break
+                if store_tracking:
+                    d = t(trial.name, tr_sess_id, trial.processing['Trial outcome']['threat_origin_arm'],
+                          trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
+                          trial.processing['Trial outcome']['maze_configuration'],
+                          trial.processing['status at stimulus'], trial)
+                else:
+                    d = t(trial.name, tr_sess_id, trial.processing['Trial outcome']['threat_origin_arm'],
+                          trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
+                          trial.processing['Trial outcome']['maze_configuration'],
+                          trial.processing['status at stimulus'], None)
+                data.append(d)
+        self.triald_df = pd.DataFrame(data, columns=t._fields)
+
+    def get_flipflop_data(self, only_r_escapes=False):
+        flipflop_right = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
+                                      (self.triald_df['configuration'] != 'Left')]
+        if only_r_escapes:
+            flipflop_right = flipflop_right[(flipflop_right['escape'] == 'Right_TtoM_platform') |
+                                            (flipflop_right['escape'] == 'Right_TtoM_bridge')]
+        ntrials_ff_right = len(flipflop_right)
+
+        flipflop_left = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
+                                      (self.triald_df['configuration'] == 'Left')]
+        if only_r_escapes:
+            flipflop_left = flipflop_left[(flipflop_left['escape'] == 'Right_TtoM_platform') |
+                                            (flipflop_left['escape'] == 'Right_TtoM_bridge')]
+        ntrials_ff_left = len(flipflop_left)
+
+        return flipflop_right, ntrials_ff_right, flipflop_left, ntrials_ff_left
+
+    def get_square_data(self, exclude_twoandhalf=False, only_r_escapes=False):
+        if exclude_twoandhalf:
+            squared = self.triald_df.loc[(self.triald_df['experiment'] == 'Square Maze')]
+        else:
+            squared = self.triald_df.loc[(self.triald_df['experiment'] == 'Square Maze') |
+                                         (self.triald_df['experiment'] == 'TwoAndahalf Maze')]
+        if only_r_escapes:
+            squared = squared[squared['escape'] != 'Central_TtoX_bridge']
+            squared = squared[squared['escape'] != 'Central_TtoX_bridge']
+            squared = squared[squared['escape'] != 'Shelter_platform']
+        ntrials_sq = len(squared)
+        return squared, ntrials_sq
+
+    def get_twoarms_data(self, only_r_escapes=False):
+        twoarm = self.triald_df.loc[(self.triald_df['experiment'] == 'PathInt2')]
+        if only_r_escapes:
+            twoarm = twoarm[(twoarm['escape'] == 'Right_TtoM_bridge')|
+                            (twoarm['escape'] == 'Right_TtoM_bridge')]
+        n_trials_2a = len(twoarm)
+        return  twoarm, n_trials_2a
+
+    @staticmethod
+    def get_probability_bymouse(data):
+        mice = set(data['session'])
+        probs, ntrials = [], []
+        for mouse in mice:
+            mouse_escapes = data[data['session'] == mouse]
+            n_escapes = len(mouse_escapes)
+            n_r_escapes = len([e for e in mouse_escapes['escape'].values if 'Right' in e])
+            ntrials.append(n_escapes)
+            probs.append(round(n_r_escapes/n_escapes, 2))
+        return probs, ntrials
 
 ########################################################################################################################
+
+    def for_labmeeting(self):
+        facecolor = [.2, .2, .2]
+        # Plot p(R) for squared and flipflop_r maze
+        f, axarr = plt.subplots(4, 1, facecolor=[.1, .1, .1])
+
+        ff_r, ntr_ff_r, _, _ = self.get_flipflop_data()
+        sq, ntr_sq = self.get_square_data()
+
+        pr_ff_r = len(ff_r[(ff_r['escape'] == 'Right_TtoM_platform') | (ff_r['escape'] == 'Right_TtoM_bridge')])/ntr_ff_r
+        pr_sq = len(sq[(sq['escape'] == 'Right_TtoM_platform') | (sq['escape'] == 'Right_TtoM_bridge')])/ntr_sq
+        axarr[0].bar(1, pr_ff_r, color=self.colors['left'], label='p(R) - flipflop')
+        axarr[0].bar(0, pr_sq, color=self.colors['right'], label='p(R) - squared')
+        axarr[0].set(title='p(R)', ylabel='p(R)', ylim=[0, 1], facecolor=facecolor)
+        make_legend(axarr[0], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
+
+        # Plot the bootstrapped distributions
+        skip = True
+        if not skip:
+            ff_r_bs = self.bootstrap(ff_r['escape'].values, 50000, num_samples=ntr_ff_r)
+            sq_bs = self.bootstrap(sq['escape'].values, 50000, num_samples=ntr_sq)
+            coin = self.coin_simultor(num_samples=ntr_sq)
+
+            binz = 60
+            self.histogram_plotter(axarr[1], ff_r_bs, color=self.colors['left'], label='flipflop',
+                                   bins=binz, normalised=True, alpha=.5)
+            self.histogram_plotter(axarr[1], sq_bs, color=self.colors['right'], label='squared',
+                                   bins=binz, normalised=True, alpha=.5)
+            self.histogram_plotter(axarr[1], coin, color=self.colors['center'], label='binomial',
+                                   bins=binz, normalised=True, alpha=.5)
+            axarr[1].set(title='bootstrapped p(R)', ylabel='frequency', xlabel='p(R)', ylim=[0, 0.08],
+                         xlim=[0,1],  xticks=np.arange(0, 1+0.1, 0.1), facecolor=facecolor)
+            make_legend(axarr[1], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
+
+        # Look at probs of individual mice in the squared dataset
+        pr_ff_r_bymouse, ntr_ff_r_bymouse = self.get_probability_bymouse(ff_r)
+        pr_sq_bymouse, ntr_sq_bymouse = self.get_probability_bymouse(sq)
+
+        axarr[2].bar(np.linspace(0, len(pr_ff_r_bymouse), len(pr_ff_r_bymouse)), sorted(pr_ff_r_bymouse),
+                     color=self.colors['left'], label='ff by mouse')
+        axarr[3].bar(np.linspace(0, len(pr_sq_bymouse), len(pr_sq_bymouse)), sorted(pr_sq_bymouse),
+                     color=self.colors['right'], label='sq by mouse')
+        axarr[2].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0,1], facecolor=facecolor)
+        axarr[3].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0,1], facecolor=facecolor)
+
+        self.probR_given()
+
+        a = 1
+
+
+########################################################################################################################
+    @staticmethod
+    def bootstrap(data, num_iters, num_samples=False, tag='Right', noise=True, replacement=True):
+        if not num_samples: num_samples = len(data)
+        noise_std = 1 / (math.sqrt(num_samples)) ** 2
+        res = []
+        for i in tqdm(range(num_iters)):
+            if not replacement:
+                sel_trials = random.sample(data, num_samples)
+            else:
+                sel_trials = [random.choice(data) for _ in data]
+                sel_trials = sel_trials[:num_samples]
+            calculated_probability = len([b for b in sel_trials if tag in b]) / num_samples
+            if noise:
+                res.append(calculated_probability + np.random.normal(scale=noise_std))
+            else:
+                res.append(calculated_probability)
+        return res
+
+    @staticmethod
+    def coin_simultor(num_samples=38, num_iters=50000):
+        probs = []
+        noise_std = 1 / (math.sqrt(num_samples)) ** 2
+        for _ in tqdm(range(num_iters)):
+            data = [random.randint(0, 1) for _ in range(num_samples)]
+            prob_one = len([n for n in data if n == 1]) / len(data) + np.random.normal(scale=noise_std)
+            probs.append(prob_one)
+        return probs
 
     def probR_given(self):
         def calc_probs(data, ntrials):
@@ -112,38 +274,6 @@ class MazeCohortProcessor:
         ntrials_sq = len(squared)
         print('\nProcessing SQUARED maze, {} R trials'.format(ntrials_sq))
         calc_probs(squared, ntrials_sq)
-
-
-
-    def from_trials_to_dataframe(self, metad, tracking_data, store_tracking):
-        t = namedtuple('trial', 'name session origin escape stimulus experiment '
-                                'configuration atstim tracking')
-        data = []
-        for trial in tracking_data.trials:
-            outcome = trial.processing['Trial outcome']['trial_outcome']
-            if not outcome:
-                print(trial.name, ' no escape')
-                continue
-            else:
-                tr_sess_id = int(trial.name.split('-')[0])
-                for session in metad.sessions_in_cohort:
-                    id = session[1].session_id
-                    exp = None
-                    if id == tr_sess_id:
-                        exp = session[1].experiment
-                        break
-                if store_tracking:
-                    d = t(trial.name, tr_sess_id, trial.processing['Trial outcome']['threat_origin_arm'],
-                          trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
-                          trial.processing['Trial outcome']['maze_configuration'],
-                          trial.processing['status at stimulus'], trial)
-                else:
-                    d = t(trial.name, tr_sess_id, trial.processing['Trial outcome']['threat_origin_arm'],
-                          trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
-                          trial.processing['Trial outcome']['maze_configuration'],
-                          trial.processing['status at stimulus'], None)
-                data.append(d)
-        self.triald_df = pd.DataFrame(data, columns=t._fields)
 
     def plot_trajectories_at_roi(self, roi='Threat'):
         """ plot the tracjectory (adjusted to shelter position) during the escape as the mouse crosses the rois
