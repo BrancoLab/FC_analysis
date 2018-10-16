@@ -323,7 +323,7 @@ class MazeCohortProcessor:
                 else:
                     # calculate escape duration
                     rois = trial['tracking'].processing['Trial outcome']['trial_rois_trajectory'][1800:]
-                    atshelter = [i for i,r in enumerate(rois) if not 'Threat' in r][0]
+                    atshelter = rois.index('Shelter_platform')
                     if atshelter < 10: continue  # there was an error
                     if trial['escape'] == 'right':
                         durs[1].append(atshelter)
@@ -489,7 +489,7 @@ class MazeCohortProcessor:
                 for idx, e in enumerate(esd):
                     axarr[0].scatter([0.75 * i - 0.25 * idx + np.random.normal(scale=0.025) for _ in e],
                                      np.divide(e, 30),
-                                     color=np.subtract(cols[exp], .2 * idx), s=125, alpha=0.5)
+                                     color=np.subtract(cols[exp], .2 * idx), s=75, alpha=0.5)
 
             lbls = ['square', 'square', 'flipflop', 'flipflop', 'twoarms', 'twoarms']
             all_durations = []
