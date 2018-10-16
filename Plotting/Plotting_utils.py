@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import os
+import numpy as np
+
 
 def make_legend(ax, c1, c2, changefont=False):
     """
@@ -32,6 +34,7 @@ def save_all_open_figs(target_fld=False, name=False, format=False, exclude_numbe
         plt.figure(fnum)
         plt.savefig(ttl)
 
+
 def create_figure(subplots=True, nrows=1, ncols=1, facecolor=[.1, .1, .1]):
     if not subplots:
         f = plt.figure(facecolor=facecolor)
@@ -40,3 +43,9 @@ def create_figure(subplots=True, nrows=1, ncols=1, facecolor=[.1, .1, .1]):
         f, axarr = plt.subplots(nrows, ncols, facecolor=facecolor)
     return f, axarr
 
+
+def show(): plt.show()
+
+
+def ticksrange(start, stop, step):
+    return np.arange(start, stop + step, step)

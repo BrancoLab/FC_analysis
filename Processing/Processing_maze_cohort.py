@@ -25,7 +25,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn import metrics
 
-from Plotting.Plotting_utils import make_legend, save_all_open_figs, create_figure
+from Plotting.Plotting_utils import make_legend, save_all_open_figs, create_figure, show, ticksrange
 from Utils.Data_rearrange_funcs import flatten_list
 from Utils.maths import line_smoother
 
@@ -221,8 +221,7 @@ class MazeCohortProcessor:
 
     def pR_byXpos_perexp(self):
         # Calculate p(R) as a factor of X position
-        binned_pr = {}
-        bin_ranges = np.arange(-70, 70, 10)
+        binned_pr, binz = {}, {}
         for exp in self.experiments:
             positions_outcomes = []
             for s in range(len(self.data_byexp[exp]['atstim'].values)):
@@ -235,23 +234,20 @@ class MazeCohortProcessor:
                 if pos is None: continue
                 positions_outcomes.append((pos[0], out))
 
-            ranged_p = []
-            for i, r in enumerate(bin_ranges):
-                if i == 0:
-                    good_outcomes = [o for p, o in positions_outcomes if p <= r]
-                else:
-                    good_outcomes = [o for p, o in positions_outcomes if bin_ranges[i - 1] < p <= r]
+            all_pos = [p[0] for p in positions_outcomes]
+            resc_pos = [p[0] for p in positions_outcomes if p[1] == 'right']
 
-                if good_outcomes:
-                    pr = round(len([o for o in good_outcomes if o == 'right']) / len(good_outcomes), 2)
-                    ranged_p.append((r, pr))
-                else:
-                    ranged_p.append((r, None))
-            binned_pr[exp] = ranged_p
-        return binned_pr
+            nbinz = 5
+            binned_all, bins = np.histogram(sorted(all_pos), bins=nbinz)
+            binned_resc = np.histogram(sorted(resc_pos), bins=nbinz)[0]
+            binned_prob = np.divide(binned_resc, binned_all)
+            binned_pr[exp] = binned_prob
+            binz[exp] = bins
+        return binned_pr, binz
 
     def contingencies_bystim_perexp(self):
         # Show contingencies tables for stimulus vs escape arm
+        res = {}
         for exp in self.experiments:
             print('='*60)
             print('='*60)
@@ -259,22 +255,25 @@ class MazeCohortProcessor:
             cont_table = pd.crosstab(self.data_byexp[exp]['escape'], self.data_byexp[exp]['stimulus'], margins=True,
                                      normalize='columns')
             print('\n\n\n\nCont. table {}\n'.format(exp), cont_table)
-            cont_table = pd.crosstab(self.data_byexp[exp]['escape'], self.data_byexp[exp]['stimulus'], margins=True)
+            cont_table = pd.crosstab(self.data_byexp[exp]['escape'], self.data_byexp[exp]['stimulus'], margins=False)
             print('\n', cont_table)
 
             print('\n\n\n')
             print('='*60)
             print('='*60)
+            res[exp] = cont_table
+        return res
 
-    def chisq_onproportions(self):
+    def chisq_onproportions(self, exp_to_compare=None, data=None):
         # Calculate chi-squared test for proportions
         # https://sites.ualberta.ca/~lkgray/uploads/7/3/6/2/7362679/slides_-_binomialproportionaltests.pdf
         # create a dataframe with exp id on one column and
         print('\n\n\nChi2 testing ---')
         dff = []
-        exp_to_compare = ['square', 'flipflop', 'twoarms']
+        if exp_to_compare is None: exp_to_compare = ['square', 'flipflop']
+        if data is None: data = self.data_byexp
         for exp in exp_to_compare:
-            good_escapes = [e for e in self.data_byexp[exp]['escape'].values if e is not None]
+            good_escapes = [e for e in data[exp]['escape'].values if e is not None]
             good_escapes = [e for e in good_escapes if str(e) != 'nan']
             good_experiments = [exp for _ in good_escapes]
             dic = {
@@ -292,9 +291,9 @@ class MazeCohortProcessor:
         prob = 0.95
         critical = stats.chi2.ppf(prob, dof)
         if abs(stat) >= critical:
-            print('Dependent (reject H0)')
+            print('Dependent (reject H0) -- chi: {} -- p: {} -- '.format(stat, p))
         else:
-            print('Independent (fail to reject H0)')
+            print('Independent (fail to reject H0) -- chi: {} -- p: {} -- '.format(stat, p))
 
         # Do a pairwise chi square test with bonferroni correction
         if len(exp_to_compare) > 2:
@@ -325,6 +324,7 @@ class MazeCohortProcessor:
                     # calculate escape duration
                     rois = trial['tracking'].processing['Trial outcome']['trial_rois_trajectory'][1800:]
                     atshelter = [i for i,r in enumerate(rois) if not 'Threat' in r][0]
+                    if atshelter < 10: continue  # there was an error
                     if trial['escape'] == 'right':
                         durs[1].append(atshelter)
                     else:
@@ -409,11 +409,29 @@ class MazeCohortProcessor:
             dff.append(df)
 
             # Print out the normalised cont. table
-            cont_table = pd.crosstab(df['escape'], df['origin'], margins=True, normalize='all')
+            cont_table = pd.crosstab(df['escape'], df['origin'], margins=True, normalize='columns')
             nm_cont_table = pd.crosstab(df['escape'], df['origin'], margins=False)
             contingency_tables[exp] = cont_table
             contingency_tables_nomargins[exp] = nm_cont_table
             print('\n', 'Norm. contingency table for {}\n\n'.format(exp), cont_table)
+
+        # Plot p(R) given arm of origin
+        f, axarr = create_figure(ncols=3)
+        for i, exp in enumerate(experiments):
+            axarr[i].set(facecolor=fcol, ylim=[0.4, 1])
+            ct = contingency_tables[exp]
+            pp = ct.iloc[1]
+            axarr[i].bar(np.linspace(0, 3, 3), [p for p in pp], color=cols[exp])
+
+            ct = contingency_tables_nomargins[exp]
+            stat, p, dof, expected = stats.chi2_contingency(ct)
+            # interpret test-statistic
+            prob = 0.95
+            critical = stats.chi2.ppf(prob, dof)
+            if abs(stat) >= critical:
+                print('EXP {} -- Dependent (reject H0) -- chi: {} -- p: {} -- '.format(exp, stat, p))
+            else:
+                print('EXP {} -- Independent (fail to reject H0) -- chi: {} -- p: {} -- '.format(exp, stat, p))
 
         data_byexp = pd.concat(dff, axis=1, keys=experiments)  # <-- all data for good trials organised by experiment
 
@@ -441,173 +459,96 @@ class MazeCohortProcessor:
         pR_bymouse_perexp = self.pR_permouse_inexp()
 
         # Calculate p(R) as a factor of X position
-        pR_byXpos_perexp = self.pR_byXpos_perexp()
+        pR_byXpos_perexp, pr_Xpos_binz = self.pR_byXpos_perexp()
 
         # Show contingencies tables for stimulus vs escape arm
-        self.contingencies_bystim_perexp()
+        cont_byexp = self.contingencies_bystim_perexp()
+        stat, p, dof, expected = stats.chi2_contingency(cont_byexp['flipflop'])
+        # interpret test-statistic
+        prob = 0.95
+        critical = stats.chi2.ppf(prob, dof)
+        if abs(stat) >= critical:
+            print('Dependent (reject H0) -- chi: {} -- p: {} -- '.format(stat, p))
+        else:
+            print('Independent (fail to reject H0) -- chi: {} -- p: {} -- '.format(stat, p))
+
+        f, ax = create_figure()
+        ax.bar(0, 0.821, color=np.subtract(cols['flipflop'], .2))
+        ax.bar(0.8, 0.771, color=cols['flipflop'])
+        ax.set(facecolor=[.2, .2, .2], ylim=[0,1])
 
         # Calculate chi-squared test for proportions
         self.chisq_onproportions()
 
         """ NOW PLOT THE RESULTS  """
-        # Plot duration of escape
+        # Plot duration of escape [scatter + boxplot]
         if not self.load:
             f, axarr = create_figure(ncols=2)
             for i, exp in enumerate(experiments):
-                for ne, escs in enumerate(escapedurs_byxp[exp]):
-                    axarr[0].scatter([i-0.5*ne for _ in escs], escs, color=cols[exp], s=35, alpha=0.75)
+                esd = [escapedurs_byxp[exp].right, escapedurs_byxp[exp].left]
+                for idx, e in enumerate(esd):
+                    axarr[0].scatter([0.75 * i - 0.25 * idx + np.random.normal(scale=0.025) for _ in e],
+                                     np.divide(e, 30),
+                                     color=np.subtract(cols[exp], .2 * idx), s=125, alpha=0.5)
 
+            lbls = ['square', 'square', 'flipflop', 'flipflop', 'twoarms', 'twoarms']
+            all_durations = []
+            for exp in experiments:
+                all_durations.append(np.divide(escapedurs_byxp[exp].left, 30))
+                all_durations.append(np.divide(escapedurs_byxp[exp].right, 30))
 
+            bplot = axarr[1].boxplot(all_durations,
+                                      vert=True,  # vertical box alignment
+                                      patch_artist=True,  # fill with color
+                                      labels=lbls)  # will be used to label x-ticks
 
+            for patch, colname in zip(bplot['boxes'], lbls):
+                patch.set_facecolor(cols[colname])
+            for ax in axarr: ax.set(facecolor=fcol)
 
+            # Plot Velocoties aligned to stim onset and aligned to detection onset
+            self.velocity_plotter(cols)
 
-        # Set up figure
-        f = plt.figure(facecolor=[.1, .1, .1])
-        f.tight_layout()
-        axarr = []
-        nrows, ncols = 4, 6
-        facecolor = [.2, .2, .2]
-        axarr.append(plt.subplot2grid((nrows, ncols), (0, 0), colspan=2))
-        axarr.append(plt.subplot2grid((nrows, ncols), (0, 2), colspan=2))
-
-        for i in range(3): axarr.append(plt.subplot2grid((nrows, ncols), (1, 2*i), colspan=2))
-        for i in range(ncols): axarr.append(plt.subplot2grid((nrows, ncols), (2, i), colspan=1))
-        for i in range(ncols): axarr.append(plt.subplot2grid((nrows, ncols), (3, i), colspan=1))
-        axarr.append(plt.subplot2grid((nrows, ncols), (0, 4), colspan=1))
-        axarr.append(plt.subplot2grid((nrows, ncols), (0, 5), colspan=1))
-
-
-
-        # Perform chi squared for independence of variables:
-        # https://docs.scipy.org/doc/scipy-0.15.1/reference/generated/scipy.stats.chi2_contingency.html
-        chisq_results = {name:stats.chi2_contingency(val) for name, val in contingency_tables_nomargins.items()}
-
-        # plot the probability of going right for each experiment
-        axarr[0].bar(1, contingency_tables['flipflop']['All']['right'], color=cols['flipflop'], label='flipflop {}tr'.format(ntr_ff_r))
-        axarr[0].bar(2, contingency_tables['twoarms']['All']['right'], color=cols['twoarms'], label='two arms {}tr'.format(ntr_ta))
-        axarr[0].bar(0, contingency_tables['square']['All']['right'], color=cols['square'], label='squared, {}tr'.format(ntr_sq))
-        axarr[0].axhline(.5, color=[.8, .8, .8], linestyle=':', linewidth=.5)
-        axarr[0].set(title='p(R)', ylabel='p(R)', ylim=[0, 1], xlim=[-0.5, 2.5], facecolor=facecolor)
-        make_legend(axarr[0], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
-
-        # Plot the bootstrapped distributions
-        skip = True
-        if not skip:
-            noise = True
-            niter = 200000
-            nsamples=39
-            ff_r_bs = self.bootstrap(ff_r['escape'].values, niter, num_samples=nsamples, noise=noise)
-            ta_bs = self.bootstrap(ta['escape'].values, niter, num_samples=nsamples, noise=noise)
-            sq_bs = self.bootstrap(sq['escape'].values, niter, num_samples=nsamples, noise=noise)
-            coin = self.coin_simultor(num_samples=100, num_iters=niter, noise=noise)
-
-            binz, norm = 250, False
-            self.histogram_plotter(axarr[1], coin, color=cols['coin'], label='binomial',
-                                   bins=binz, normalised=norm, alpha=.35, just_outline=False)
-            self.histogram_plotter(axarr[1], ff_r_bs, color=cols['flipflop'], label='flipflop',
-                                   bins=binz, normalised=norm, alpha=.75)
-            self.histogram_plotter(axarr[1], ta_bs, color=cols['twoarms'], label='two arms',
-                                   bins=binz, normalised=norm, alpha=.75)
-            self.histogram_plotter(axarr[1], sq_bs, color=cols['square'], label='squared',
-                                   bins=binz, normalised=norm, alpha=.75)
-            axarr[1].set(title='bootstrapped p(R)', ylabel='frequency', xlabel='p(R)', ylim=[0, 0.08],
-                         xlim=[0,1],  xticks=np.arange(0, 1+0.1, 0.1), facecolor=facecolor)
-            make_legend(axarr[1], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
-
-            f, axarr = plt.subplots(4, 1)
-            self.histogram_plotter(axarr[0], coin, color=cols['coin'], label='binomial',
-                                   bins=binz, normalised=norm, alpha=.5, just_outline=False)
-            self.histogram_plotter(axarr[1], ff_r_bs, color=cols['flipflop'], label='flipflop',
-                                   bins=binz, normalised=norm, alpha=.75)
-            self.histogram_plotter(axarr[2], ta_bs, color=cols['twoarms'], label='two arms',
-                                   bins=binz, normalised=norm, alpha=.75)
-            self.histogram_plotter(axarr[3], sq_bs, color=cols['square'], label='squared',
-                                   bins=binz, normalised=norm, alpha=.75)
-            for ax in axarr:
-                ax.set(title='bootstrapped p(R)', ylabel='frequency', xlabel='p(R)',
-                             xlim=[0, 1], xticks=np.arange(0, 1 + 0.1, 0.1), facecolor=facecolor)
-                make_legend(axarr[1], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
-
-        # Look at probs of individual mice in the squared dataset
-        pr_ff_r_bymouse, ntr_ff_r_bymouse = self.get_probability_bymouse(ff_r)
-        pr_ta_bymouse, ntr_ta_bymouse = self.get_probability_bymouse(ta)
-        pr_sq_bymouse, ntr_sq_bymouse = self.get_probability_bymouse(sq)
-
-        axarr[2].bar(np.linspace(0, len(pr_sq_bymouse), len(pr_sq_bymouse)), sorted(pr_sq_bymouse),
-                     color=cols['square'], label='sq by mouse')
-        axarr[3].bar(np.linspace(0, len(pr_ff_r_bymouse), len(pr_ff_r_bymouse)), sorted(pr_ff_r_bymouse),
-                     color=cols['flipflop'], label='ff by mouse')
-        axarr[4].bar(np.linspace(0, len(pr_ta_bymouse), len(pr_ta_bymouse)), sorted(pr_ta_bymouse),
-                     color=cols['twoarms'], label='ta by mouse')
-
-        axarr[2].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0, 1.1], facecolor=facecolor,
-                     xticks=[],  xlim=[-0.5, len(pr_sq_bymouse)+0.5])
-        axarr[3].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0, 1.1], facecolor=facecolor,
-                     xticks=[], xlim=[-0.5, len(pr_ff_r_bymouse) + 0.5])
-        axarr[4].set(title='p(R) by mouse', ylabel='p(R)', xlabel='mice', ylim=[0, 1.1], facecolor=facecolor,
-                     xticks=[], xlim=[-0.5, len(pr_ta_bymouse) + 0.5])
-
-        # Scatter plots of status at reaction
-        self.scatter_plotter(axarr[7], ff_r,  'origin', cols, coltag='flipflop')
-        self.scatter_plotter(axarr[8], ff_r,'escape',  cols, coltag='flipflop')
-        self.scatter_plotter(axarr[14], ff_r, 'Orientation', cols, coltag='flipflop')
-
-        self.scatter_plotter(axarr[9], ta, 'origin', cols, coltag='twoarms')
-        self.scatter_plotter(axarr[10], ta, 'escape', cols, coltag='twoarms')
-        self.scatter_plotter(axarr[12], ta, 'Orientation', cols, coltag='twoarms')
-
-        self.scatter_plotter(axarr[5], sq, 'origin',  cols, coltag='square')
-        self.scatter_plotter(axarr[6], sq, 'escape', cols, coltag='square')
-        self.scatter_plotter(axarr[16], sq, 'Orientation', cols, coltag='square')
-
-        # BOX plot of ntrials per mouse grouped by exp
-        data = [ntr_sq_bymouse, ntr_ff_r_bymouse, ntr_ta_bymouse]
-        labels = ['square', 'flipflop', 'twoarms']
-        bplot = axarr[17].boxplot(data,
-                                   vert=True,  # vertical box alignment
-                                   patch_artist=True,  # fill with color
-                                   labels=labels)  # will be used to label x-ticks
-
-        for patch, colname in zip(bplot['boxes'], labels):
+        # Plot # trial per mouse by experiment
+        f, axarr = create_figure(ncols=2)
+        for i, exp in enumerate(experiments):
+            tr = number_of_trial_per_mouse[exp]
+            axarr[0].scatter([0.2 * i + np.random.normal(scale=0.02) for _ in tr], tr,
+                             color=cols[exp], s=500, alpha=0.5)
+        bplot = axarr[1].boxplot(number_of_trial_per_mouse.values(),
+                                 vert=True,  # vertical box alignment
+                                 patch_artist=True,  # fill with color
+                                 labels=experiments)  # will be used to label x-ticks
+        for patch, colname in zip(bplot['boxes'], experiments):
             patch.set_facecolor(cols[colname])
+        for ax in axarr: ax.set(facecolor=fcol)
 
-        axarr[17].set(title='n trials per mouse by exp', facecolor=facecolor, ylabel='num trials', xticks=[])
-        make_legend(axarr[17], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
+        # plot p(R) by experiment
+        f, ax = create_figure()
+        for i, exp in enumerate(experiments):
+            ax.bar(i-0.1*i, pR_byexp[exp], color=cols[exp])
+        ax.set(facecolor=fcol, xticks=[],  yticks=ticksrange(0, 1, .1))
 
-        # scatterplot ntrial for all mice
-        sessions = set(self.triald_df['session'])
-        ntr_all = [len(self.triald_df[self.triald_df['session']==s]) for s in sessions]
-        bplot = axarr[18].boxplot(ntr_all, vert=True, patch_artist=True, widths=5)
+        # plot p(R) by mouse
+        f, axarr = create_figure(nrows=3)
+        for i, exp in enumerate(experiments):
+            pr = pR_bymouse_perexp[exp]
+            axarr[i].bar(np.linspace(0, len(pr), len(pr)), sorted(pr), color=cols[exp])
+            axarr[i].set(facecolor=fcol, xticks=[], yticks=ticksrange(0, 1, .1))
 
-        axarr[18].scatter(np.linspace(5, len(ntr_all)+5, len(ntr_all)), sorted(ntr_all), s=55, color=[.6, .6, .6])
+        # plot p(R) by x position
+        f, axarr = create_figure(nrows=3)
+        for i, exp in enumerate(experiments):
+            pr = pR_byXpos_perexp[exp]
+            axarr[i].axhline(pR_byexp[exp], color='w', ls=':')
+            axarr[i].bar(pr_Xpos_binz[exp][0:-1], pr, color=cols[exp], width=30)
+            axarr[i].set(facecolor=fcol, xticks=ticksrange(np.min(pr_Xpos_binz[exp]), np.max(pr_Xpos_binz[exp]), 10),
+                         yticks=ticksrange(0, 1, .1))
 
-        axarr[18].set(title='n trials by mouse', facecolor=facecolor, ylabel='num trials', xlim=[-3,len(ntr_all)+7],
-                      xticks=[])
-        for patch, colname in zip(bplot['boxes'], labels):
-            patch.set_facecolor([.8, .8, .8])
+        self.plot_escape_trajectories(cols)
 
-        # Probability of escape given origin
-        self.prob_originescape(ff_r, axarr[13],cmap='Reds')
-        self.prob_originescape(sq, axarr[11],cmap='Blues')
-        self.prob_originescape(ta, axarr[15],cmap='Oranges')
-
-        # Calulate Welche's t-test
-        welch_ffvis_twoarms = stats.ttest_ind([1 if 'Right' in e else 0 for e in ff_r['escape'].values],
-                                              [1 if 'Right' in e else 0 for e in ta['escape'].values],
-                                              equal_var=False)
-        welch_ffaud_twoarms = stats.ttest_ind([1 if 'Right' in e else 0 for e in ff_r['escape'].values],
-                                              [1 if 'Right' in e else 0 for e in sq['escape'].values],
-                                              equal_var=False)
-        welch_allff_twoarms = stats.ttest_ind([1 if 'Right' in e else 0 for e in sq['escape'].values],
-                                              [1 if 'Right' in e else 0 for e in ta['escape'].values],
-                                              equal_var=False)
-
-
-
-        # self.probR_given()
-        f.tight_layout()
-        plt.show()
         a = 1
+        show()
 
 ########################################################################################################################
     ###  PROBABILITY FUNCTIONS ####
@@ -736,9 +677,126 @@ class MazeCohortProcessor:
                xlabel='adjusted x pos', ylabel='adjusted y pos')
         make_legend(ax, [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
 
+    def velocity_plotter(self, cols):
+        # Get all the sessions for which we have the detection time
+        filepath = 'D:\\Dropbox (UCL - SWC)\\Dropbox (UCL - SWC)\\Rotation_vte\\analysis\\det_times.txt'
+        with open(filepath, 'r') as f:
+            sessions, timeshift = [], {}
+            for line in f:
+                sessions.append(int(line.split(' ')[1].split('_')[0]))
+                timeshift[line.split(' ')[4]] = int(line.split(' ')[-1])
+            sessions = set(sessions)
 
+        f, axarr = create_figure(ncols=3, nrows=2)
+        axarr = axarr.flatten()
+        for ax in axarr:
+            ax.axvline(15, color='w', linewidth=1.5)
+            ax.set(facecolor=[.2, .2, .2])
 
+        exps = ['twoarms', 'flipflop']
+        wnd = [1785, 1940]
+        for exp in exps:
+            d = self.data_byexp[exp]
+            container = [[], [], []]
+            shifted_cont = [[], [], []]
+            for n in range(len(d)):
+                tr = d.iloc[n]
+                if tr['origin'] is None or str(tr['origin']) == 'nan': continue
+                if tr.session not in sessions: continue
 
+                velocity = tr.tracking.dlc_tracking['Posture']['body']['Velocity'].values
+                blength = tr.tracking.dlc_tracking['Posture']['body']['Body length'].values
+                angvel = np.abs(line_smoother(tr.tracking.dlc_tracking['Posture']['body']['Body ang vel'].values,
+                                              order=10, window_size=25))
+
+                bl_atstim = blength[1800]
+                velocity = np.multiply(np.divide(velocity, bl_atstim), 30)  # convert to bl/sec
+                blength = np.divide(blength, bl_atstim)
+
+                varz = [velocity,blength, angvel]
+                adjusted_varz = []
+                for i, v in enumerate(varz):
+                    while len(v)<3600: v = np.append(v, 0)
+                    container[i].append(v)
+                    adjusted_varz.append(v)
+
+                axarr[0].plot(velocity[wnd[0]:wnd[1]], color=np.subtract(cols[exp], .25), linewidth=0.75, alpha=.25)
+                axarr[1].plot(blength[wnd[0]:wnd[1]], color=np.subtract(cols[exp], .25), linewidth=0.75, alpha=.25)
+                axarr[2].plot(angvel[wnd[0]:wnd[1]], color=np.subtract(cols[exp], .25), linewidth=0.75, alpha=.25)
+
+                try:
+                    delay = timeshift[tr['name']]
+                except:
+                    pass
+                adjusted = []
+                for i, v in enumerate(adjusted_varz):
+                    v = v[delay-1800-3:]
+                    v = np.append(v, np.zeros(delay))
+                    shifted_cont[i].append(v)
+                    adjusted.append(v)
+
+                axarr[3].plot(adjusted[0][wnd[0]:wnd[1]], color=np.subtract(cols[exp], .25), linewidth=0.75, alpha=.25)
+                axarr[4].plot(adjusted[1][wnd[0]:wnd[1]], color=np.subtract(cols[exp], .25), linewidth=0.75, alpha=.25)
+                axarr[5].plot(adjusted[2][wnd[0]:wnd[1]], color=np.subtract(cols[exp], .25), linewidth=0.75, alpha=.25)
+
+            for i,c in enumerate(container):
+                avg = np.mean(c, axis=0)
+                sem = np.std(c, axis=0) / math.sqrt(len(c))
+                axarr[i].errorbar(x=np.linspace(0, len(avg[wnd[0]:wnd[1]]), len(avg[wnd[0]:wnd[1]])),
+                                  y=avg[wnd[0]:wnd[1]], yerr=sem[wnd[0]:wnd[1]],
+                                  color=cols[exp], linewidth=2, elinewidth=1.25)
+
+            for i, c in enumerate(shifted_cont):
+                avg = np.mean(c, axis=0)
+                sem = np.std(c, axis=0) / math.sqrt(len(c))
+                axarr[3+i].errorbar(x=np.linspace(0, len(avg[wnd[0]:wnd[1]]), len(avg[wnd[0]:wnd[1]])),
+                                  y=avg[wnd[0]:wnd[1]], yerr=sem[wnd[0]:wnd[1]],
+                                  color=cols[exp], linewidth=2, elinewidth=1.25)
+
+        axarr[0].set(title='Velocity', xlim=[0, 135], ylim=[0, 9], xticks=ticksrange(0, 135, 15))
+        axarr[1].set(title='Body length', xlim=[0, 135], ylim=[0.4, 1.25], xticks=ticksrange(0, 135, 15))
+        axarr[2].set(title='Ang. vel', xlim=[0, 135], ylim=[0, 13], xticks=ticksrange(0, 135, 15))
+        axarr[3].set(title='Velocity', xlim=[0, 135], ylim=[0, 9], xticks=ticksrange(0, 135, 15))
+        axarr[4].set(title='Body length', xlim=[0, 135], ylim=[0.4, 1.25], xticks=ticksrange(0, 135, 15))
+        axarr[5].set(title='Ang. vel', xlim=[0, 135], ylim=[0, 13], xticks=ticksrange(0, 135, 15))
+
+        a = 1
+
+    def plot_escape_trajectories(self, cols):
+        """ plot the escape trajectories for L trials for ff and 2arms trials """
+        #
+        # flipflop = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
+        #                               (self.triald_df['configuration'] != 'Right')]
+        # flipflop = flipflop[(self.triald_df['escape'] == 'Right_TtoM_bridge') |
+        #                     (self.triald_df['escape'] == 'Right_TtoF_bridge')]
+        # flipflop2 = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
+        #                               (self.triald_df['configuration'] != 'Left')]
+        # flipflop2 = flipflop2[(self.triald_df['escape'] == 'Left_TtoM_bridge') |
+        #                     (self.triald_df['escape'] == 'Left_TtoF_bridge')]
+
+        f, ax = plt.subplots(1, 1, facecolor=[.1, .1, .1])
+        ax.set(ylim=[100, -600], facecolor=[.2, .2, .2])
+
+        sides = ['Left', 'Right']
+        for i, s in enumerate(sides):
+            if s != 'Right': continue
+            for ii, ss in enumerate(sides):
+                print('Conf {}, side {}'.format(s, ss))
+                flipflop = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
+                                              (self.triald_df['configuration'] == s)]
+                flipflop = flipflop[(flipflop['escape'] == '{}_TtoM_bridge'.format(ss))]
+                for tr in flipflop['tracking']:
+                    threat_loc = tr.processing['Trial outcome']['maze_rois']['Threat_platform']
+
+                    threat_loc = (threat_loc.topleft[0] + (threat_loc.bottomright[0] - threat_loc.topleft[0]) / 2,
+                                  threat_loc.topleft[1] + (threat_loc.bottomright[1] - threat_loc.topleft[1]) / 2)
+                    roi_trajectory = tr.processing['Trial outcome']['trial_rois_trajectory'][1800:]
+                    tracking = (np.subtract(tr.dlc_tracking['Posture']['body']['x'][1800:], threat_loc[0]),
+                                np.subtract(tr.dlc_tracking['Posture']['body']['y'][1800:], threat_loc[1]))
+                    at_shelter = roi_trajectory.index('Shelter_platform')
+                    print(at_shelter/30)
+                    ax.plot(np.subtract(tracking[0].values[:at_shelter], 750*i),
+                            tracking[1].values[: at_shelter], alpha=0.75, color=cols['flipflop'])
 ########################################################################################################################
 ###  LOADING and SAVING FUNCTIONS ####
 ########################################################################################################################
@@ -779,40 +837,6 @@ class MazeCohortProcessor:
 
         a = 1
 
-    def plot_escape_trajectories(self):
-        """ plot the escape trajectories for L trials for ff and 2arms trials """
-        #
-        # flipflop = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
-        #                               (self.triald_df['configuration'] != 'Right')]
-        # flipflop = flipflop[(self.triald_df['escape'] == 'Right_TtoM_bridge') |
-        #                     (self.triald_df['escape'] == 'Right_TtoF_bridge')]
-        # flipflop2 = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
-        #                               (self.triald_df['configuration'] != 'Left')]
-        # flipflop2 = flipflop2[(self.triald_df['escape'] == 'Left_TtoM_bridge') |
-        #                     (self.triald_df['escape'] == 'Left_TtoF_bridge')]
-
-        f, ax = plt.subplots(1, 1, facecolor=[.1, .1, .1])
-        ax.set(ylim=[100, -600], facecolor=[.2, .2, .2])
-
-        sides = ['Left', 'Right']
-        for i, s in enumerate(sides):
-            for ii, ss in enumerate(sides):
-                print('Conf {}, side {}'.format(s, ss))
-                flipflop = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &
-                                              (self.triald_df['configuration'] == s)]
-                flipflop = flipflop[(flipflop['escape'] == '{}_TtoM_bridge'.format(ss))]
-                for tr in flipflop['tracking']:
-                    print(tr)
-                    threat_loc = tr.processing['Trial outcome']['maze_rois']['Threat_platform']
-
-                    threat_loc = (threat_loc.topleft[0] + (threat_loc.bottomright[0] - threat_loc.topleft[0]) / 2,
-                                  threat_loc.topleft[1] + (threat_loc.bottomright[1] - threat_loc.topleft[1]) / 2)
-                    roi_trajectory = tr.processing['Trial outcome']['trial_rois_trajectory'][1800:]
-                    tracking = (np.subtract(tr.dlc_tracking['Posture']['body']['x'][1800:], threat_loc[0]),
-                                np.subtract(tr.dlc_tracking['Posture']['body']['y'][1800:], threat_loc[1]))
-                    at_shelter = roi_trajectory.index('Shelter_platform')
-                    ax.plot(np.subtract(tracking[0].values[:at_shelter], 750*i),
-                            tracking[1].values[: at_shelter], alpha=0.75, color=[.4 * i, .6, .5*ii])
 
     def plot_status_stim(self):
         ff_vis = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &

@@ -45,8 +45,8 @@ def tile_videos():
         edit = cut_crop_video(vidpath=vid_path, save_format=False, cut=True, starts=58, fins=71, ret=True)
         edited.append(edit)
 
-    final = clips_array([[edited[0], edited[1]],
-                         [edited[2], edited[3]]])
+    final = clips_array([[edited[1], edited[2]],
+                         [edited[-1], edited[3]]])
 
     random_id = np.random.randint(1, 10000, 1)
     final.write_videofile(os.path.join(save_fld, 'tiled_{}'.format(random_id[0])) + '.mp4')
