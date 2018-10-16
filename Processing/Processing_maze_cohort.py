@@ -218,16 +218,19 @@ class MazeCohortProcessor:
         contingency_tables, contingency_tables_nomargins = {}, {}
         dff = []
         for exp, dat in zip(experiments, datas):
-            included_indexes = [i if 'Left' in e or 'Right' in e else None for i, e in enumerate(dat['escape'])]
-            escs = ['left' if 'Left' in e else 'right' if 'Right' in e else None for e in dat['escape'].values]
+            temp_escs = [(i, 'left') if 'Left' in e else (i, 'right') if 'Right' in e else (None, None)
+                    for i, e in enumerate(dat['escape'].values)]
+            included_indexes = [e[0] for e in temp_escs]
+            escs = [e[1] for e in temp_escs]
             oris = ['left' if 'Left' in e else 'right' if 'Right' in e else None for e in dat['origin'].values]
 
-            n = [n for i, n in enumerate(dat['name'].values) if i in included_indexes]
-            sess = [n for i, n in enumerate(dat['session'].values) if i in included_indexes]
-            stims = [n for i, n in enumerate(dat['stimulus'].values) if i in included_indexes]
-            exps = [n for i, n in enumerate(dat['experiment'].values) if i in included_indexes]
-            confs = [n for i, n in enumerate(dat['configuration'].values) if i in included_indexes]
-            atstims = [n[1] for i, n in enumerate(dat['atstim'].values) if i in included_indexes]
+            n = [n if i in included_indexes else None for i, n in enumerate(dat['name'].values) ]
+            sess = [n if i in included_indexes else None for i, n in enumerate(dat['session'].values)]
+            stims = [n if i in included_indexes else None for i, n in enumerate(dat['stimulus'].values)]
+            exps = [n if i in included_indexes else None for i, n in enumerate(dat['experiment'].values)]
+            confs = [n if i in included_indexes else None for i, n in enumerate(dat['configuration'].values)]
+            atstims = [(round(n[1]['adjusted x'],2), round(n[1]['adjusted y'],2)) if i in included_indexes else None
+                       for i, n in enumerate(dat['atstim'].values)]
 
             dic = {
                 'origin': oris,
@@ -250,7 +253,7 @@ class MazeCohortProcessor:
         data_byexp = pd.concat(dff, axis=1, keys=experiments)  # <-- all data for good trials organised by experiment
 
         # Calculate n trials per experiment
-        number_of_trials = {}
+        number_of_trials, number_of_trial_per_mouse = {}, {}
         for exp in experiments:
             ntr = []
             sess = data_byexp[exp]['session']
@@ -258,7 +261,21 @@ class MazeCohortProcessor:
                 if s is None: continue
                 calculated = len(sess[data_byexp[exp]['session'] == s])
                 if calculated: ntr.append(calculated)
-            number_of_trials[exp] = ntr
+            number_of_trials[exp] = np.sum(ntr)
+            number_of_trial_per_mouse[exp] = ntr
+
+        # Store p(R) for each experiment and calculate the binomial distribution C.I.:
+        # https://www.thomasjpfan.com/2015/08/statistical-power-of-coin-flips/
+        print('\n\n\nCalculating C.I.')
+        alpha = 0.05
+        pr_by_exp = {}
+        for exp in experiments:
+            pr = contingency_tables[exp]['All']['right']
+            pr_by_exp[exp] = pr
+
+            ntr = number_of_trials[exp]
+            fair_interval = stats.binom.interval(1-alpha, ntr, 0.5)
+            print(exp, fair_interval, ' -- ', round(pr, 2))
 
         # Calculate n trials per mouse for all mice
         sessions = set(self.triald_df['session'])
@@ -282,33 +299,33 @@ class MazeCohortProcessor:
 
         # Calculate p(R) as a factor of X position
         # TODO this need to be checked
-        binned_pr = {}
-        bin_ranges = np.arange(-70, 70, 10)
-        for exp in experiments:
-            positions_outcomes = []
-            for s in range(len(data_byexp[exp]['atstim'].values)):
-                pos = data_byexp[exp]['atstim'].iloc[s]
-                out = data_byexp[exp]['escape'].iloc[s]
-                try:
-                    if np.isnan(out): continue
-                except: pass
-                if pos is None: continue
-                positions_outcomes.append((pos['adjusted x'], out))
-
-            ranged_p = []
-            for i, r in enumerate(bin_ranges):
-                if i == 0:
-                    good_outcomes = [o for p, o in positions_outcomes if p <= r]
-                else:
-                    good_outcomes = [o for p, o in positions_outcomes if bin_ranges[i-1] < p <= r]
-
-                if good_outcomes:
-                    pr = round(len([o for o in good_outcomes if o == 'right'])/len(good_outcomes), 2)
-                    ranged_p.append((r, pr))
-                else:
-                    ranged_p.append((r, None))
-
-            binned_pr[exp] = ranged_p
+        # binned_pr = {}
+        # bin_ranges = np.arange(-70, 70, 10)
+        # for exp in experiments:
+        #     positions_outcomes = []
+        #     for s in range(len(data_byexp[exp]['atstim'].values)):
+        #         pos = data_byexp[exp]['atstim'].iloc[s]
+        #         out = data_byexp[exp]['escape'].iloc[s]
+        #         try:
+        #             if np.isnan(out): continue
+        #         except: pass
+        #         if pos is None: continue
+        #         positions_outcomes.append((pos['adjusted x'], out))
+        #
+        #     ranged_p = []
+        #     for i, r in enumerate(bin_ranges):
+        #         if i == 0:
+        #             good_outcomes = [o for p, o in positions_outcomes if p <= r]
+        #         else:
+        #             good_outcomes = [o for p, o in positions_outcomes if bin_ranges[i-1] < p <= r]
+        #
+        #         if good_outcomes:
+        #             pr = round(len([o for o in good_outcomes if o == 'right'])/len(good_outcomes), 2)
+        #             ranged_p.append((r, pr))
+        #         else:
+        #             ranged_p.append((r, None))
+        #
+        #     binned_pr[exp] = ranged_p
 
         # Show contingencies tables for stimulus vs escape arm
         for exp in experiments:
@@ -317,6 +334,49 @@ class MazeCohortProcessor:
             print('\n\n\n\n', cont_table)
             cont_table = pd.crosstab(data_byexp[exp]['escape'], data_byexp[exp]['stimulus'], margins=True)
             print('\n', cont_table)
+
+
+        # Calculate chi-squared test for proportions
+        # https://sites.ualberta.ca/~lkgray/uploads/7/3/6/2/7362679/slides_-_binomialproportionaltests.pdf
+        # create a dataframe with exp id on one column and
+        print('\n\n\nChi2 testing ---')
+        dff = []
+        exp_to_compare = ['square', 'flipflop', 'twoarms']
+        for exp in exp_to_compare:
+            good_escapes = [e for e in data_byexp[exp]['escape'].values if e is not None]
+            good_escapes = [e for e in good_escapes if str(e) != 'nan']
+            good_experiments = [exp for _ in good_escapes]
+            dic = {
+                'experiment': good_experiments,
+                'escape': good_escapes,
+            }
+            df = pd.DataFrame.from_dict(dic, orient='index').transpose()
+            dff.append(df)
+        exp_outcome_df = pd.concat(dff)
+
+        obs = pd.crosstab(exp_outcome_df['escape'], exp_outcome_df['experiment'])
+        print('\n', obs, '\n')
+        stat, p, dof, expected = stats.chi2_contingency(obs)
+        # interpret test-statistic
+        prob = 0.95
+        critical = stats.chi2.ppf(prob, dof)
+        if abs(stat) >= critical:
+            print('Dependent (reject H0)')
+        else:
+            print('Independent (fail to reject H0)')
+
+        # Do a pairwise chi square test with bonferroni correction
+        if len(exp_to_compare)>2:
+            dummies = pd.get_dummies(exp_outcome_df['experiment'])
+            adjusted_p = 0.05/len(exp_to_compare)
+
+            for series in dummies:
+                crosstab = pd.crosstab(dummies[series], exp_outcome_df['escape'])
+                print('\n\n', crosstab)
+                chi2, p, dof, expected = stats.chi2_contingency(crosstab)
+                print('Chi2: {}, p: {}, DoF: {}'.format(chi2, p, dof))
+                if p < adjusted_p: print('Significant')
+                else: print('Not significant')
 
 
 
