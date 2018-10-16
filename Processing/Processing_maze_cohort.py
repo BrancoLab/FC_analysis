@@ -182,14 +182,151 @@ class MazeCohortProcessor:
 ########################################################################################################################
 
     def for_labmeeting(self):
-        cols=dict(
+        cols = dict(
             flipflop=[233/250, 150/255, 122/255],
             twoarms=[173/255, 216/250, 230/255],
             square=[216/255, 191/255, 216/255],
             coin=[1.0, 1.0, 1.0]
         )
 
-        # Set up digure
+        """
+        plot:
+            * p(R) per experiment  --> statistical test to check for significance
+            * $$ --- # trials per experiment
+            * $$ --- # trials in total
+            * $$ --- # p(R) per mouse
+        
+        factors that could be influencing p(R):
+            * duration of escape --> avg time to shelter per arm
+            * exploration --> avg time spend in each platform
+            * $$ --- # arm of origin --> contingency tables: p(escape R) vs p(origin R)
+            * $$ --- # x position --> p(R) binned by X position
+            * previous trial --> ???
+            * stimulus --> 
+        
+        """
+
+        """ set up data and calc contingency tables """
+        # get data
+        ff_r, ntr_ff_r, _, _ = self.get_flipflop_data()
+        ta, ntr_ta = self.get_twoarms_data()
+        sq, ntr_sq = self.get_square_data()
+
+        # Calculate contingencies tables for each experiment + create multi-layer dataframe
+        experiments = ['square', 'flipflop', 'twoarms']
+        datas = [sq, ff_r, ta]
+        contingency_tables, contingency_tables_nomargins = {}, {}
+        dff = []
+        for exp, dat in zip(experiments, datas):
+            included_indexes = [i if 'Left' in e or 'Right' in e else None for i, e in enumerate(dat['escape'])]
+            escs = ['left' if 'Left' in e else 'right' if 'Right' in e else None for e in dat['escape'].values]
+            oris = ['left' if 'Left' in e else 'right' if 'Right' in e else None for e in dat['origin'].values]
+
+            n = [n for i, n in enumerate(dat['name'].values) if i in included_indexes]
+            sess = [n for i, n in enumerate(dat['session'].values) if i in included_indexes]
+            stims = [n for i, n in enumerate(dat['stimulus'].values) if i in included_indexes]
+            exps = [n for i, n in enumerate(dat['experiment'].values) if i in included_indexes]
+            confs = [n for i, n in enumerate(dat['configuration'].values) if i in included_indexes]
+            atstims = [n[1] for i, n in enumerate(dat['atstim'].values) if i in included_indexes]
+
+            dic = {
+                'origin': oris,
+                'escape': escs,
+                'name': n,
+                'session': sess,
+                'stimulus': stims,
+                'experiment': exps,
+                'configuration': confs,
+                'atstim': atstims
+            }
+            df = pd.DataFrame.from_dict(dic, orient='index').transpose()
+            dff.append(df)
+            cont_table = pd.crosstab(df['escape'], df['origin'], margins=True, normalize='all')
+            nm_cont_table = pd.crosstab(df['escape'], df['origin'], margins=False)
+            print('\n', cont_table)
+            contingency_tables[exp] = cont_table
+            contingency_tables_nomargins[exp] = nm_cont_table
+
+        data_byexp = pd.concat(dff, axis=1, keys=experiments)  # <-- all data for good trials organised by experiment
+
+        # Calculate n trials per experiment
+        number_of_trials = {}
+        for exp in experiments:
+            ntr = []
+            sess = data_byexp[exp]['session']
+            for s in set(sess.values):
+                if s is None: continue
+                calculated = len(sess[data_byexp[exp]['session'] == s])
+                if calculated: ntr.append(calculated)
+            number_of_trials[exp] = ntr
+
+        # Calculate n trials per mouse for all mice
+        sessions = set(self.triald_df['session'])
+        ntr_all = [len(self.triald_df[self.triald_df['session'] == s]) for s in sessions]
+
+        # Calculate p(R) for each mouse in each experiment
+        prob_right_bymouse = {}
+        for exp in experiments:
+            probs = []
+            sessions = set(data_byexp[exp]['session'].values)
+            for s in sessions:
+                if s is None: continue
+                if np.isnan(s): continue
+                exp_data = data_byexp[exp][data_byexp[exp]['session']==s]
+                cont_table = pd.crosstab(exp_data['escape'], exp_data['origin'], margins=True, normalize='all')
+                if 'right' in cont_table['All'].keys():
+                    probs.append(round(cont_table['All']['right'], 2))
+                else:
+                    probs.append(0)
+            prob_right_bymouse[exp] = probs
+
+        # Calculate p(R) as a factor of X position
+        # TODO this need to be checked
+        binned_pr = {}
+        bin_ranges = np.arange(-70, 70, 10)
+        for exp in experiments:
+            positions_outcomes = []
+            for s in range(len(data_byexp[exp]['atstim'].values)):
+                pos = data_byexp[exp]['atstim'].iloc[s]
+                out = data_byexp[exp]['escape'].iloc[s]
+                try:
+                    if np.isnan(out): continue
+                except: pass
+                if pos is None: continue
+                positions_outcomes.append((pos['adjusted x'], out))
+
+            ranged_p = []
+            for i, r in enumerate(bin_ranges):
+                if i == 0:
+                    good_outcomes = [o for p, o in positions_outcomes if p <= r]
+                else:
+                    good_outcomes = [o for p, o in positions_outcomes if bin_ranges[i-1] < p <= r]
+
+                if good_outcomes:
+                    pr = round(len([o for o in good_outcomes if o == 'right'])/len(good_outcomes), 2)
+                    ranged_p.append((r, pr))
+                else:
+                    ranged_p.append((r, None))
+
+            binned_pr[exp] = ranged_p
+
+        # Show contingencies tables for stimulus vs escape arm
+        for exp in experiments:
+            cont_table = pd.crosstab(data_byexp[exp]['escape'], data_byexp[exp]['stimulus'], margins=True,
+                                     normalize='columns')
+            print('\n\n\n\n', cont_table)
+            cont_table = pd.crosstab(data_byexp[exp]['escape'], data_byexp[exp]['stimulus'], margins=True)
+            print('\n', cont_table)
+
+
+
+
+
+
+
+
+
+        # Set up figure
         f = plt.figure(facecolor=[.1, .1, .1])
         f.tight_layout()
         axarr = []
@@ -204,18 +341,16 @@ class MazeCohortProcessor:
         axarr.append(plt.subplot2grid((nrows, ncols), (0, 4), colspan=1))
         axarr.append(plt.subplot2grid((nrows, ncols), (0, 5), colspan=1))
 
-        # get data
-        ff_r, ntr_ff_r, _, _ = self.get_flipflop_data()
-        ta, ntr_ta = self.get_twoarms_data()
-        sq, ntr_sq = self.get_square_data()
+
+
+        # Perform chi squared for independence of variables:
+        # https://docs.scipy.org/doc/scipy-0.15.1/reference/generated/scipy.stats.chi2_contingency.html
+        chisq_results = {name:stats.chi2_contingency(val) for name, val in contingency_tables_nomargins.items()}
 
         # plot the probability of going right for each experiment
-        pr_ff_r = len(ff_r[(ff_r['escape'] == 'Right_TtoM_platform') | (ff_r['escape'] == 'Right_TtoM_bridge')])/ntr_ff_r
-        pr_ta = len(ta[(ta['escape'] == 'Right_TtoM_platform') | (ta['escape'] == 'Right_TtoM_bridge')])/ntr_ta
-        pr_sq = len(sq[(sq['escape'] == 'Right_TtoM_platform') | (sq['escape'] == 'Right_TtoM_bridge')])/ntr_sq
-        axarr[0].bar(1, pr_ff_r, color=cols['flipflop'], label='flipflop {}tr'.format(ntr_ff_r))
-        axarr[0].bar(2, pr_ta, color=cols['twoarms'], label='two arms {}tr'.format(ntr_ta))
-        axarr[0].bar(0, pr_sq, color=cols['square'], label='squared, {}tr'.format(ntr_sq))
+        axarr[0].bar(1, contingency_tables['flipflop']['All']['right'], color=cols['flipflop'], label='flipflop {}tr'.format(ntr_ff_r))
+        axarr[0].bar(2, contingency_tables['twoarms']['All']['right'], color=cols['twoarms'], label='two arms {}tr'.format(ntr_ta))
+        axarr[0].bar(0, contingency_tables['square']['All']['right'], color=cols['square'], label='squared, {}tr'.format(ntr_sq))
         axarr[0].axhline(.5, color=[.8, .8, .8], linestyle=':', linewidth=.5)
         axarr[0].set(title='p(R)', ylabel='p(R)', ylim=[0, 1], xlim=[-0.5, 2.5], facecolor=facecolor)
         make_legend(axarr[0], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=12)
