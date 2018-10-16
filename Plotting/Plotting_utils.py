@@ -32,4 +32,11 @@ def save_all_open_figs(target_fld=False, name=False, format=False, exclude_numbe
         plt.figure(fnum)
         plt.savefig(ttl)
 
+def create_figure(subplots=True, nrows=1, ncols=1, facecolor=[.1, .1, .1]):
+    if not subplots:
+        f = plt.figure(facecolor=facecolor)
+        axarr = None
+    else:
+        f, axarr = plt.subplots(nrows, ncols, facecolor=facecolor)
+    return f, axarr
 
