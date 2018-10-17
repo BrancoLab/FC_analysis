@@ -139,6 +139,14 @@ class MazeCohortProcessor:
         n_trials_2a = len(twoarm)
         return  twoarm, n_trials_2a
 
+    def get_threearm_data(self, only_r_escapes=False):
+        threearm = self.triald_df.loc[(self.triald_df['experiment'] == 'PathInt')]
+        if only_r_escapes:
+            threearm = threearm[(threearm['escape'] == 'Right_TtoM_bridge')|
+                            (threearm['escape'] == 'Right_TtoM_bridge')]
+        n_trials_2a = len(threearm)
+        return  threearm, n_trials_2a
+
     @staticmethod
     def get_probability_bymouse(data):
         mice = set(data['session'])
@@ -155,7 +163,6 @@ class MazeCohortProcessor:
         for n in range(len(self.triald_df)):
             tr = self.triald_df.iloc[n]
             threat_loc = tr['tracking'].processing['Trial outcome']['maze_rois']['Threat_platform']
-
             threat_loc = (threat_loc.topleft[0] + (threat_loc.bottomright[0] - threat_loc.topleft[0]) / 2,
                           threat_loc.topleft[1] + (threat_loc.bottomright[1] - threat_loc.topleft[1]) / 2)
 
@@ -346,24 +353,14 @@ class MazeCohortProcessor:
             flipflop=[233/250, 150/255, 122/255],
             twoarms=[173/255, 216/250, 230/255],
             square=[216/255, 191/255, 216/255],
+            threearms=[150 / 255, 170 / 255, 220 / 255],
             coin=[1.0, 1.0, 1.0]
         )
         fcol = [.2, .2, .2]
 
         """
-        plot:
-            * $$ --- # p(R) per experiment  --> statistical test to check for significance
-            * $$ --- # trials per experiment
-            * $$ --- # trials in total
-            * $$ --- # p(R) per mouse
-        
-        factors that could be influencing p(R):
-            * $$ --- # duration of escape --> avg time to shelter per arm
-            * exploration --> avg time spend in each platform
-            * $$ --- # arm of origin --> contingency tables: p(escape R) vs p(origin R)
-            * $$ --- # x position --> p(R) binned by X position
-            * previous trial --> ???
-            * $$ --- #  stimulus --> show probability and show velocity traces
+        ADD: relevant plots for 3arms maze (e.g. duration of escape on short arm)
+        P(R) as a factor of X position... 
         """
 
         """ set up data and calc contingency tables """
@@ -371,19 +368,22 @@ class MazeCohortProcessor:
         ff_r, ntr_ff_r, _, _ = self.get_flipflop_data()
         ta, ntr_ta = self.get_twoarms_data()
         sq, ntr_sq = self.get_square_data()
+        threea, ntr_threea = self.get_threearm_data()
 
         # Calculate contingencies tables for each experiment + create multi-layer dataframe
-        experiments = ['square', 'flipflop', 'twoarms']
-        datas = [sq, ff_r, ta]
+        experiments = ['square', 'flipflop', 'twoarms', 'threearms']
+        datas = [sq, ff_r, ta, threea]
         contingency_tables, contingency_tables_nomargins = {}, {}
         dff = []
         for exp, dat in zip(experiments, datas):
-            # Preperare data to restructure in dataframe
-            temp_escs = [(i, 'left') if 'Left' in e else (i, 'right') if 'Right' in e else (None, None)
-                    for i, e in enumerate(dat['escape'].values)]
+            # Preperare data to restructure in data frame
+            temp_escs = [(i, 'left') if 'Left' in e else (i, 'right') if 'Right' in e
+                        else (i, 'centre') if 'Central' in e else (None, None)
+                        for i, e in enumerate(dat['escape'].values)]
             included_indexes = [e[0] for e in temp_escs]
             escs = [e[1] for e in temp_escs]
-            oris = ['left' if 'Left' in e else 'right' if 'Right' in e else None for e in dat['origin'].values]
+            oris = ['left' if 'Left' in e else 'right' if 'Right' in e
+                    else 'centre' if 'Central' in e else None for e in dat['origin'].values]
             n = [n if i in included_indexes else None for i, n in enumerate(dat['name'].values) ]
             sess = [n if i in included_indexes else None for i, n in enumerate(dat['session'].values)]
             stims = [n if i in included_indexes else None for i, n in enumerate(dat['stimulus'].values)]
@@ -416,12 +416,12 @@ class MazeCohortProcessor:
             print('\n', 'Norm. contingency table for {}\n\n'.format(exp), cont_table)
 
         # Plot p(R) given arm of origin
-        f, axarr = create_figure(ncols=3)
+        f, axarr = create_figure(ncols=len(experiments))
         for i, exp in enumerate(experiments):
             axarr[i].set(facecolor=fcol, ylim=[0.4, 1])
             ct = contingency_tables[exp]
             pp = ct.iloc[1]
-            axarr[i].bar(np.linspace(0, 3, 3), [p for p in pp], color=cols[exp])
+            axarr[i].bar(np.linspace(0, len(pp), len(pp)), [p for p in pp], color=cols[exp])
 
             ct = contingency_tables_nomargins[exp]
             stat, p, dof, expected = stats.chi2_contingency(ct)
@@ -455,11 +455,11 @@ class MazeCohortProcessor:
         # https://www.thomasjpfan.com/2015/08/statistical-power-of-coin-flips/
         pR_byexp = self. pR_perexp(contingency_tables, number_of_trials)
 
-        # Calculate p(R) for each mouse in each experiment
-        pR_bymouse_perexp = self.pR_permouse_inexp()
-
         # Calculate p(R) as a factor of X position
         pR_byXpos_perexp, pr_Xpos_binz = self.pR_byXpos_perexp()
+
+        # Calculate p(R) for each mouse in each experiment
+        pR_bymouse_perexp = self.pR_permouse_inexp()
 
         # Show contingencies tables for stimulus vs escape arm
         cont_byexp = self.contingencies_bystim_perexp()
@@ -530,14 +530,14 @@ class MazeCohortProcessor:
         ax.set(facecolor=fcol, xticks=[],  yticks=ticksrange(0, 1, .1))
 
         # plot p(R) by mouse
-        f, axarr = create_figure(nrows=3)
+        f, axarr = create_figure(nrows=len(experiments))
         for i, exp in enumerate(experiments):
             pr = pR_bymouse_perexp[exp]
             axarr[i].bar(np.linspace(0, len(pr), len(pr)), sorted(pr), color=cols[exp])
             axarr[i].set(facecolor=fcol, xticks=[], yticks=ticksrange(0, 1, .1))
 
         # plot p(R) by x position
-        f, axarr = create_figure(nrows=3)
+        f, axarr = create_figure(nrows=len(experiments))
         for i, exp in enumerate(experiments):
             pr = pR_byXpos_perexp[exp]
             axarr[i].axhline(pR_byexp[exp], color='w', ls=':')
@@ -545,7 +545,7 @@ class MazeCohortProcessor:
             axarr[i].set(facecolor=fcol, xticks=ticksrange(np.min(pr_Xpos_binz[exp]), np.max(pr_Xpos_binz[exp]), 10),
                          yticks=ticksrange(0, 1, .1))
 
-        self.plot_escape_trajectories(cols)
+        # self.plot_escape_trajectories(cols)
 
         a = 1
         show()
@@ -797,6 +797,8 @@ class MazeCohortProcessor:
                     print(at_shelter/30)
                     ax.plot(np.subtract(tracking[0].values[:at_shelter], 750*i),
                             tracking[1].values[: at_shelter], alpha=0.75, color=cols['flipflop'])
+
+
 ########################################################################################################################
 ###  LOADING and SAVING FUNCTIONS ####
 ########################################################################################################################
