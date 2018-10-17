@@ -418,7 +418,7 @@ class MazeCohortProcessor:
         # Plot p(R) given arm of origin
         f, axarr = create_figure(ncols=len(experiments))
         for i, exp in enumerate(experiments):
-            axarr[i].set(facecolor=fcol, ylim=[0.4, 1])
+            axarr[i].set(facecolor=fcol, ylim=[0, 1])
             ct = contingency_tables[exp]
             pp = ct.iloc[1]
             axarr[i].bar(np.linspace(0, len(pp), len(pp)), [p for p in pp], color=cols[exp])
@@ -451,7 +451,7 @@ class MazeCohortProcessor:
         sessions = set(self.triald_df['session'])
         ntr_all = [len(self.triald_df[self.triald_df['session'] == s]) for s in sessions]
 
-        # Store p(R) for each experiment and calculate the binomial distribution C.I.:
+        # Store p(R) for each experiment and calculate the binomial distribution C.I.:  # TODO fix binomial range
         # https://www.thomasjpfan.com/2015/08/statistical-power-of-coin-flips/
         pR_byexp = self. pR_perexp(contingency_tables, number_of_trials)
 
@@ -461,7 +461,7 @@ class MazeCohortProcessor:
         # Calculate p(R) for each mouse in each experiment
         pR_bymouse_perexp = self.pR_permouse_inexp()
 
-        # Show contingencies tables for stimulus vs escape arm
+        # Show contingencies tables for p(R) by stim
         cont_byexp = self.contingencies_bystim_perexp()
         stat, p, dof, expected = stats.chi2_contingency(cont_byexp['flipflop'])
         # interpret test-statistic
@@ -541,8 +541,8 @@ class MazeCohortProcessor:
         for i, exp in enumerate(experiments):
             pr = pR_byXpos_perexp[exp]
             axarr[i].axhline(pR_byexp[exp], color='w', ls=':')
-            axarr[i].bar(pr_Xpos_binz[exp][0:-1], pr, color=cols[exp], width=30)
-            axarr[i].set(facecolor=fcol, xticks=ticksrange(np.min(pr_Xpos_binz[exp]), np.max(pr_Xpos_binz[exp]), 10),
+            axarr[i].bar(pr_Xpos_binz[exp][0:-1][::-1], pr, color=cols[exp], width=10)
+            axarr[i].set(facecolor=fcol, xticks=ticksrange(np.max(pr_Xpos_binz[exp]), np.min(pr_Xpos_binz[exp]), 10),
                          yticks=ticksrange(0, 1, .1))
 
         # self.plot_escape_trajectories(cols)
