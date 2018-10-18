@@ -11,7 +11,7 @@ from Utils.Data_rearrange_funcs import create_cohort, check_session_selected
 from Utils.Messaging import slack_chat_messenger
 from Utils.decorators import clock
 
-from Processing import Processing_main
+from maze import Processing_main
 from Plotting import Single_trial_summary
 
 from Config import load_database, update_database, load_name, save_name\
@@ -181,7 +181,7 @@ class Analysis():
         # Create a cohort and store it in database
         self.db, coh = create_cohort(self.db)  # Get all the trial data in one place
 
-        from Processing.Processing_maze_cohort import MazeCohortProcessor
+        from maze.Processing_maze_cohort import MazeCohortProcessor
         MazeCohortProcessor(coh)
 
         # save

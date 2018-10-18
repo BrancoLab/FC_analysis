@@ -6,28 +6,26 @@ matplotlib.rc('axes', edgecolor=[0.8, 0.8, 0.8])
 params = {'legend.fontsize': 16,
           'legend.handlelength': 2}
 col = [0, 0, 0]
-# col = [.8, .8, .8]
 matplotlib.rc('axes', edgecolor=col)
 matplotlib.rcParams['text.color'] = [.8, .8, .8]
 matplotlib.rcParams['axes.labelcolor']  =[.8, .8, .8]
 matplotlib.rcParams['axes.labelcolor'] = [.8, .8, .8]
 matplotlib.rcParams['xtick.color'] = [.8, .8, .8]
 matplotlib.rcParams['ytick.color'] = [.8, .8, .8]
-
 plt.rcParams.update(params)
 
 import platform
 import math
 import random
-import seaborn as sns
 from scipy import stats
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn import metrics
+from sklearn.externals import joblib as pickle
+# import dill as pickle
 
 from Plotting.Plotting_utils import make_legend, save_all_open_figs, create_figure, show, ticksrange
-from Utils.Data_rearrange_funcs import flatten_list
 from Utils.maths import line_smoother
+from maze.utils import crop_trial_tracking
 
 from Config import cohort_options
 
@@ -71,7 +69,7 @@ class MazeCohortProcessor:
 ########################################################################################################################
     ###  DATA SEGMENTATION FUNCTIONS ####
 ########################################################################################################################
-    def from_trials_to_dataframe(self, metad, tracking_data, store_tracking):
+    def from_trials_to_dataframe(self, metad, tracking_data, store_tracking, clip_tracking_data=True):
         t = namedtuple('trial', 'name session origin escape stimulus experiment '
                                 'configuration atstim tracking')
         data = []
@@ -89,6 +87,8 @@ class MazeCohortProcessor:
                         exp = session[1].experiment
                         break
                 if store_tracking:
+                    if clip_tracking_data:
+                        trial = crop_trial_tracking(trial)
                     d = t(trial.name, tr_sess_id, trial.processing['Trial outcome']['threat_origin_arm'],
                           trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
                           trial.processing['Trial outcome']['maze_configuration'],
@@ -812,7 +812,6 @@ class MazeCohortProcessor:
 ########################################################################################################################
 
     def save_dataframe(self):
-        import dill as pickle
         with open(os.path.join(self.data_fld, self.save_name), "wb") as dill_file:
             pickle.dump(self.triald_df, dill_file)
 
@@ -846,7 +845,6 @@ class MazeCohortProcessor:
                 axarr[r_index].set(title=r, facecolor=[.2, .2, .2])
 
         a = 1
-
 
     def plot_status_stim(self):
         ff_vis = self.triald_df.loc[(self.triald_df['experiment'] == 'FlipFlop Maze') &

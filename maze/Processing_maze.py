@@ -16,7 +16,6 @@ matplotlib.rcParams['ytick.color'] = col
 
 plt.rcParams.update(params)
 
-from Processing.Processing_maze_expspecific import flipflop
 import math
 
 arms_colors = dict(left=(255, 0, 0), central=(0, 255, 0), right=(0, 0, 255), shelter=(200, 180, 0),
@@ -26,17 +25,14 @@ arms_colors = dict(left=(255, 0, 0), central=(0, 255, 0), right=(0, 0, 255), she
 
 
 class mazeprocessor:
-    # TODO session processor
     def __init__(self, session, settings=None, debugging=False):
-        self.escape_duration_limit = 9  # number of seconds within which the S platf must be reached to consider the trial succesf.
-
+        self.escape_duration_limit = 59  # number of seconds  after end of stim within which the S platf must be reached
 
         # Initialise variables
         print(colored('      ... maze specific processing session: {}'.format(session.name), 'green'))
         self.session = session
         self.settings = settings
         self.debug_on = debugging
-
         self.colors = arms_colors
         self.xyv_trace_tup = namedtuple('trace', 'x y velocity')
 
@@ -44,14 +40,9 @@ class mazeprocessor:
         self.maze_rois = self.get_maze_components()
 
         # Analyse exploration and trials in parallel
-        funcs = [self.exploration_processer, self.trial_processor]
+        funcs = [self.exploration_processor, self.trial_processor]
         pool = ThreadPool(len(funcs))
         [pool.apply(func) for func in funcs]
-
-        # if settings is not None:
-        #     if settings['apply exp-specific'] and session.Metadata['exp'] in exp_specifics.keys():
-        #         cls = exp_specifics[session.Metadata['exp']]
-        #         cls()
 
     # UTILS ############################################################################################################
     def get_templates(self):
@@ -179,7 +170,6 @@ class mazeprocessor:
         return dic
 
     def get_roi_at_each_frame(self, data, datatype='namedtuple'):
-        # TODO handle incoming data
         if datatype == 'namedtuple':
             data_length = len(data.x)
             pos = np.zeros((data_length, 2))
@@ -259,7 +249,7 @@ class mazeprocessor:
         return transitions, results
 
     # EXPLORATION PROCESSOR ############################################################################################
-    def exploration_processer(self, expl=None):
+    def exploration_processor(self, expl=None):
         if expl is None:          # Define the exploration phase if none is given
             if 'Exploration' in self.session.Tracking.keys():
                 expl = self.session.Tracking['Exploration']
@@ -443,7 +433,12 @@ class mazeprocessor:
                 # Complete escape
                 fps = self.session.Metadata.videodata[0]['Frame rate'][0]
                 time_to_shelter = escape_rois.index('Shelter_platform')/fps
-                if time_to_shelter > self.escape_duration_limit: results['trial_outcome'] = False  # Too slow
+
+                if 'visual' in data.metadata['Stim type']: stimdur = 5
+                elif 'audio' in data.metadata['Stim type']: stimdur = 9
+                else: raise Warning('ooooops')
+
+                if time_to_shelter > (stimdur + self.escape_duration_limit): results['trial_outcome'] = False  # Too slow
                 else:  results['trial_outcome'] = True  # True is a complete escape
             res = self.get_arms_of_originandescape(escape_rois, outward=False)
             results['first_at_shelter'] = res[0] + results['stim_time']

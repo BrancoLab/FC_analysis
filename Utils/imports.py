@@ -49,8 +49,8 @@ from Utils.Messaging import slack_chat_messenger
 from Utils.utils_classes import Trial, Cohort
 
 # Processing
-from Processing.Processing_maze import mazeprocessor
-from Processing.Processing_maze_cohort import MazeCohortProcessor
+from maze.Processing_maze import mazeprocessor
+from maze.Processing_maze_cohort import MazeCohortProcessor
 from Processing.Processing_maze_expspecific import *
 from Processing.Processing_utils import *
 from multiprocessing.dummy import Pool as ThreadPool
@@ -66,12 +66,6 @@ except: pass
 # Config
 from Config import save_name
 from Config import cohort_options
-
-
-
-
-
-
 
 
 
