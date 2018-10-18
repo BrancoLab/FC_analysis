@@ -26,6 +26,7 @@ from sklearn.externals import joblib as pickle
 from Plotting.Plotting_utils import make_legend, save_all_open_figs, create_figure, show, ticksrange
 from Utils.maths import line_smoother
 from maze.utils import crop_trial_tracking
+from maze.maze_ml import EscapePrediction
 
 from Config import cohort_options
 
@@ -59,6 +60,11 @@ class MazeCohortProcessor:
         else:
             name = 'all_trials'
             self.load_dataframe()
+
+
+        EscapePrediction(self.triald_df)
+
+
 
         self.for_labmeeting()
 
