@@ -319,11 +319,11 @@ class MazeCohortProcessor:
 
     def get_escape_durations(self):
         # loop over each trial in each experiment
-        durations = namedtuple('d', 'left right')
+        durations = namedtuple('d', 'left right centre')
         durs_byexp = {}
         for exp in self.experiments:
             d = self.data_byexp[exp]
-            durs = durations([], [])
+            durs = durations([], [], [])
             for n in range(len(d)):
                 trial = d.iloc[n]
                 if trial['escape'] is None or str(trial['escape']) == 'nan': continue
@@ -334,6 +334,8 @@ class MazeCohortProcessor:
                     if atshelter < 10: continue  # there was an error
                     if trial['escape'] == 'right':
                         durs[1].append(atshelter)
+                    elif trial['escape'] == 'centre':
+                        durs[2].append(atshelter)
                     else:
                         durs[0].append(atshelter)
 
@@ -343,7 +345,7 @@ class MazeCohortProcessor:
 
             durs_byexp[exp] = durs
 
-            all_durs = [d for d in durs.left] + [d for d in durs.right]
+            all_durs = [d for d in durs.left] + [d for d in durs.right]+ [d for d in durs.centre]
             print('\n\nMedian escape duration for exp {}: {} -- L escape: {} -- R escape: {}'.format(
                 exp, np.median(all_durs), np.median(durs.left), np.median(durs.right) ))
         return durs_byexp
@@ -353,7 +355,7 @@ class MazeCohortProcessor:
             flipflop=[233/250, 150/255, 122/255],
             twoarms=[173/255, 216/250, 230/255],
             square=[216/255, 191/255, 216/255],
-            threearms=[150 / 255, 170 / 255, 220 / 255],
+            threearms=[147 / 255, 112 / 255, 119 / 255],
             coin=[1.0, 1.0, 1.0]
         )
         fcol = [.2, .2, .2]
@@ -423,6 +425,8 @@ class MazeCohortProcessor:
             pp = ct.iloc[1]
             axarr[i].bar(np.linspace(0, len(pp), len(pp)), [p for p in pp], color=cols[exp])
 
+
+
             ct = contingency_tables_nomargins[exp]
             stat, p, dof, expected = stats.chi2_contingency(ct)
             # interpret test-statistic
@@ -485,16 +489,20 @@ class MazeCohortProcessor:
         if not self.load:
             f, axarr = create_figure(ncols=2)
             for i, exp in enumerate(experiments):
-                esd = [escapedurs_byxp[exp].right, escapedurs_byxp[exp].left]
+                esd = [escapedurs_byxp[exp].right, escapedurs_byxp[exp].left, escapedurs_byxp[exp].centre]
                 for idx, e in enumerate(esd):
                     axarr[0].scatter([0.75 * i - 0.25 * idx + np.random.normal(scale=0.025) for _ in e],
                                      np.divide(e, 30),
                                      color=np.subtract(cols[exp], .2 * idx), s=75, alpha=0.5)
 
-            lbls = ['square', 'square', 'flipflop', 'flipflop', 'twoarms', 'twoarms']
+            lbls = ['square', 'square', 'square',
+                    'flipflop', 'flipflop', 'flipflop',
+                    'twoarms', 'twoarms', 'twoarms',
+                    'threearms', 'threearms', 'threearms']
             all_durations = []
             for exp in experiments:
                 all_durations.append(np.divide(escapedurs_byxp[exp].left, 30))
+                all_durations.append(np.divide(escapedurs_byxp[exp].centre, 30))
                 all_durations.append(np.divide(escapedurs_byxp[exp].right, 30))
 
             bplot = axarr[1].boxplot(all_durations,
