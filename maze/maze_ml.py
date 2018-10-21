@@ -15,150 +15,48 @@ import sys
 
 
 class EscapePrediction:
-    def __init__(self, data):
-        all_params = ['adjusted x', 'Orientation', 'adjusted y']
-        explore = False
-
-        for nparams in range(len(all_params)):
-            self.included_params = all_params[:nparams+1]
-            self.excluded_params = ['name', 'likelihood', 'maze_roi', 'x', 'y', 'Accelearation', 'Head ang acc']
-            self.categoricals = ['stimulus', 'origin']
-
-            self.select_by_tag = 'experiment'
-            self.select_by_values = ['Square Maze']
-
-            # Prepare the dataframe
-            self.data = data
-            data_all = self.prep_status_atstim_data(select_subset=True, scale_data=True)
-            data_all = self.remove_wrong_escapes_ors(data_all)
-
-            # Create training and test datasets
-            self.training_set, self.test_set = train_test_split(data_all, test_size=0.2, random_state=42)
-
-            self.prepped_data = self.training_set.drop(columns=['escape'])
-            self.escape_labels = self.training_set['escape']
-            self.escape_labels = (self.escape_labels == 'escape_right').astype(np.int) # 1 for R - else 0
-
-            self.colors = ['r' if v else 'g' for v in self.escape_labels.values]
-        # TODO make it cleaner, facilitate comparison of same model across different dataset or for different params
-        # TODO make it cleaner, to facilitate comparison across models
-        # TODO improve model testing and results visualisation
-
-        # Get data at stim onset 
+    def __init__(self, data, explore=False):
         self.data = data
-        processor = DataProcessing(self.data)
-        data_all = processor.prep_status_atstim_data(dataset=self.data, scaledata=True, 
-                                                     excluded_params=self.excluded_params,
-                                                     included_params=self.included_params,
-                                                     categoricals=self.categoricals)
-        data_all = processor.remove_error_trials(data_all, keepC=False)
+        self.data_handling = DataProcessing(self.data)
 
+        self.define_params()
+        self.prepped_data()
+        self.create_trainingvstest_data()
+
+        if explore:
+            self.explore_data(verbose=False, show_scatter_matrx=True)
+
+    ##################  SET UP
+
+    def define_params(self):
+        self.all_params = dict(
+            included=['adjusted x', 'Orientation', 'adjusted y'],
+            excluded=['name', 'likelihood', 'maze_roi', 'x', 'y', 'Accelearation', 'Head ang acc'],
+            categoricals=['stimulus', 'origin']
+        )
+
+    def prepare_data(self):
+        self.select_by_tag = 'experiment'
+        self.select_by_values = ['Square Maze']
+
+        # Prepare the dataframe
+        self.prepped_data = self.data_handling.prep_status_atstim_data(self.data, scaledata=False,
+                                                              excluded_params=None,
+                                                              included_params=None,
+                                                              categoricals=None)
+        # Clean up and remove categoricals
+        self.prepped_data = self.data_handling.remove_error_trials(self.prepped_data)
+
+    def create_trainingvstest_data(self):
         # Create training and test dataset
-        self.training_data, training_labels, _, complete_test = processor.get_training_test_datasets(data_all)
+        self.training_data, self.training_labels, _, complete_test = self.data.get_training_test_datasets(self.data)
+        self.colors = ['r' if v else 'g' for v in self.training_labels.values]
+
         # Remove categoricals
-        self.training_data = processor.remove_categoricals(data=self.training_data, categoricals=self.categoricals)
+        self.training_data = self.data_handling.remove_categoricals(data=self.training_data,
+                                                                    categoricals=self.all_params['categoricals'])
 
-            # Explore data and plot stuff
-            if explore:
-                self.explore_data(show_scatter_matrx=True)
-
-            # Clean up the data
-            self.remove_categoricals()
-
-            # Train the model
-            self.train(model_type='svm')
-
-            # Test it
-            self.test()
-            print('Working with {} numerical parameters:'.format(nparams))
-            print('     Numerical parameters: {}'.format(self.included_params))
-            print('     Categorical parameters: {}'.format(self.categoricals))
-
-        # Fine-tune the model
-        # self.fine_tune()
-
-        a = 1
-        sys.exit()
-
-    def select_data_subset(self, data, removebyconfig=False):
-        data = data[data[self.select_by_tag].isin(self.select_by_values)]
-        if removebyconfig:
-            data = data[data['configuration'].isin(['Right'])]
-        return data
-
-    @staticmethod
-    def remove_wrong_escapes_ors(data):
-        def cleaner(val):
-            good = ['right', 'left']
-            for g in good:
-                if g in val.lower(): return g
-            return None
-
-        idx_to_remove = []
-        for n in range(len(data)):
-            d = data.iloc[n]
-
-            escape = cleaner(d['escape'])
-            if 'origin' in d.keys():
-                origin = cleaner(d['origin'])
-
-                if escape is None or origin is None: idx_to_remove.append(n)
-            else:
-                if escape is None: idx_to_remove.append(n)
-            d.at['escape'] = 'escape_{}'.format(escape)
-            if 'origin' in d.keys():
-                d.at['origin'] = 'origin_{}'.format(origin)
-            data.iloc[n] = d
-
-        data = data.drop(index=idx_to_remove)
-        return data
-
-    def prep_status_atstim_data(self, select_subset=False, scale_data=False):
-        """  get for each trial the info at the stim onset and organise in a dataframe """
-        # Select only relevant subset of trials
-        self.data = self.select_data_subset(self.data)
-
-        # Extract the relevant information
-        status_vars = self.data.iloc[0].atstim[1].keys()
-        statuses_names = ['atstim', 'atmediandetection', 'atpostmediandetection']
-
-        statuses_list = []
-        for status_name in statuses_names:
-            temp_status = {'{}_{}'.format(status_name, v):[] for v in status_vars if v not in self.excluded_params}
-
-            for s in self.data[status_name].values:
-                for v, val in s[1].items():
-                    if v in self.excluded_params: continue
-                    if select_subset:
-                        if v not in self.included_params: continue
-
-                    if v in ['Orientation', 'Head angle']:
-                        while val > 360: val-= 360
-                    temp_status['{}_{}'.format(status_name, v)].append(val)
-            statuses_list.append(temp_status)
-        status = {**statuses_list[0], **statuses_list[1], **statuses_list[2]}
-
-        # Scale the data
-        if scale_data:
-            for k,v in status.items():
-                if not v: continue
-                scaler = StandardScaler()
-                v = np.asarray(v).reshape((-1, 1))
-                scaled = scaler.fit_transform(v.astype(np.float64))
-                status[k] = scaled.flatten()
-
-        for name in self.categoricals:
-            if select_subset:
-                if name in self.included_params:
-                    status[name] = self.data[name].values
-                else:
-                    status[name] = self.data[name].values
-
-        status['escape'] = self.data['escape'].values
-        final_status = {k:v for k,v in status.items() if np.any(v)}
-
-        df = pd.DataFrame.from_dict(final_status)
-        return df
+    ##################   EXPLORE DATA
 
     def explore_data(self, verbose=False, show_scatter_matrx=True):
         self.prepped_data.head()
@@ -186,41 +84,30 @@ class EscapePrediction:
         attributes = self.prepped_data.keys()
         scatter_matrix(self.prepped_data[attributes],  color=self.colors, diagonal='kde', s=200, alpha=0.75)
 
-    def remove_categoricals(self):
-        # remove categoricals
-        for cat in self.categoricals:
-            if not cat in self.prepped_data.keys(): continue
-            encoder = OneHotEncoder(sparse=False)
-            catdf = self.prepped_data[cat]
-            catdf_encoded, categories = catdf.factorize()
-            catdf_encoded_hot = encoder.fit_transform(catdf_encoded.reshape(-1, 1))
+    ##################  TRAIN MODELS
 
-            for i,c in enumerate(categories):
-                self.prepped_data[c] = catdf_encoded_hot[:, i]
+    def define_models(self):
+        self.models = dict(
+            sgd=SGDClassifier(),
+            randomforest=RandomForestRegressor(),
+            logreg=LogisticRegression(),
+            svm=SVC(kernel='poly', degree=3, coef0=.1, C=5)
+        )
 
-            self.prepped_data = self.prepped_data.drop(columns=cat)
-        attributes = self.training_data.keys()
-        scatter_matrix(self.training_data[attributes], alpha=.5)
-
-    def train(self, model_type='sgd', crossval=False):
-        if model_type == 'sgd':
-            self.model = SGDClassifier()
-        elif model_type == 'randomforest':
-            self.model = RandomForestRegressor()
-        elif model_type == 'logreg':
-            self.model = LogisticRegression()
-        elif model_type == 'svm':
-            self.model = SVC(kernel='poly', degree=3, coef0=.1, C=5)
+    def train_model(self, model=None, crossval=None):
+        if model is not None:
+            models_to_train = self.models[model]
         else:
-            return
+            models_to_train = [m for m in self.models.values()]
 
-        if crossval:
-            probs = cross_val_predict(self.model, self.prepped_data, self.escape_labels, cv=3, method='predict_proba')
-            probs = cross_val_predict(self.model, self.training_data, self.training_labels, cv=3, method='predict_proba')
-            print('CV probability for model {}\n'.format(model_type), probs)
-        else:
-            self.model.fit(self.prepped_data, self.escape_labels)
-            self.model.fit(self.training_data, self.training_labels)
+        for model in models_to_train:
+            if crossval:
+                probs = cross_val_predict(model, self.prepped_data, self.training_labels, cv=3, method='predict_proba')
+                print('CV probability for model {}\n'.format(model), probs)
+            else:
+                model.fit(self.training_data, self.training_labels)
+
+    ################### TEST MODELS
 
     def test(self, crossval=True, conf_mtx=True, precision=True, curves=True, roc=True):
         pred = cross_val_predict(self.model, self.prepped_data, self.escape_labels, cv=3)
@@ -273,18 +160,18 @@ class EscapePrediction:
 
         a = 1
 
-    def fine_tune(self):
-        # TODO work in progess for linear estimators
-        random_search = RandomizedSearchCV(param_grid, cv=5, scoring='neg_mean_squared_error')
-
-
-        param_grid = [{'max_features':[1, 2, 3, 4, 5, 6]},
-                      {'bootstrap':[False],
-                       'max_features':[1, 2, 3, 4, 5, 6]}]
-        model = self.model
-        grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error')
-        grid_search.fit(self.prepped_data, self.escape_labels)
-        grid_search.fit(self.training_data, self.training_labels)
+    # def fine_tune(self):
+    #     # TODO work in progess for linear estimators
+    #     random_search = RandomizedSearchCV(param_grid, cv=5, scoring='neg_mean_squared_error')
+    #
+    #
+    #     param_grid = [{'max_features':[1, 2, 3, 4, 5, 6]},
+    #                   {'bootstrap':[False],
+    #                    'max_features':[1, 2, 3, 4, 5, 6]}]
+    #     model = self.model
+    #     grid_search = GridSearchCV(model, param_grid, cv=5, scoring='neg_mean_squared_error')
+    #     grid_search.fit(self.prepped_data, self.escape_labels)
+    #     grid_search.fit(self.training_data, self.training_labels)
 
 
 class DataProcessing:
