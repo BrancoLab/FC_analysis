@@ -26,7 +26,7 @@ arms_colors = dict(left=(255, 0, 0), central=(0, 255, 0), right=(0, 0, 255), she
 
 class mazeprocessor:
     def __init__(self, session, settings=None, debugging=False):
-        self.escape_duration_limit = 59  # number of seconds  after end of stim within which the S platf must be reached
+        self.escape_duration_limit = 5  # number of seconds  after end of stim within which the S platf must be reached
 
         # Initialise variables
         print(colored('      ... maze specific processing session: {}'.format(session.name), 'green'))
@@ -325,6 +325,17 @@ class mazeprocessor:
 
                         self.get_trial_outcome(data, maze_configuration)
                         self.get_status_at_timepoint(data)  # get status at stim
+
+                        stim_time = data.processing['Trial outcome']['stim_time']
+                        if 'audio' in data.metadata['Stim type']:
+                            det = 5
+                        else:
+                            det = 10
+                        try:
+                            self.get_status_at_timepoint(data, time=stim_time+det, timename='Median Detection')
+                            self.get_status_at_timepoint(data, time=stim_time+det+10, timename='Post median Detection')
+                        except: pass
+
 
                         # vtes = {r: self.get_vte_in_roi(data, roi=r) for r in rois_for_hesitations}
                         # self.session.Tracking[trial_name].processing['vtes'] = vtes

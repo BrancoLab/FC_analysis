@@ -11,14 +11,14 @@ load_database = True  # This is False only if you are creating a new database
 
 # Specify if you want to update the database to add recently added sessions to database
 update_database = False
-load_name = 'alldata_session_111_processed'  # name of file to load
+load_name = 'all_sess147_safe'  # name of file to load
 
 # Specify name with which to save the results of the analysis
-save_name = 'reaction_times'
+save_name = 'all_sess147'
 
 # Save a subset of the database with a new name
 save_as_new_database = False
-new_name = 'flipflop'
+new_name = 'flipflop_vs'
 
 """
 Specify set of sessions to analyse 
@@ -35,13 +35,13 @@ Experiment_type specifies which kind of experiment we are analysing (e.g. maze o
 might behave differently depending on the type of experiment
 """
 # TODO add "new" to selector type
-selector_type = 'date'  # selects which session to an 'new', 'experiment', 'session', 'date' or COHORT to
+selector_type = 'cohort'  # selects which session to an 'new', 'experiment', 'session', 'date' or COHORT to
 selector = ['180603', '180604', '180605', '180606', '180607', '180625', '180626', '180628',
-            '180801', '180823', '180830', '180901', '180907', '180909', '180928', '180929']
+            '180801', '180823', '180907', '180909', '180928', '180929',  '181012', '181013', '181014']
 exp_type = 'maze'
 
 #  ['180603', '180604', '180605', '180606', '180607', '180625', '180626', '180628',
-# '180801', '180823', '180907', '180909', '180928', '180929']
+# '180801', '180823', '180907', '180909', '180928', '180929',  '181012', '181013', '181014']
 
 
 
@@ -56,13 +56,13 @@ startf = 4000  # Skip the first n frames of the first video when tracking
 
 extract_rois_background = False  # If 'bg get rois' = True, set this to True to manually extract the rois from bg
 
-track_mouse = True             # <----- !!!!!!!!!!  Run tracking
+track_mouse = False           # <----- !!!!!!!!!!  Run tracking
 track_options = {
-    'bg get rois': False,          # allow user to define 3 ROIs when extracting background [threat, shelter variable]
-    'track whole session': True,  # Track the mouse for the entire session
+    'bg get rois': True,          # allow user to define 3 ROIs when extracting background [threat, shelter variable]
+    'track whole session': False,  # Track the mouse for the entire session
     'track_exploration': False,    # Track the mouse during the exploration using the standard tracking
     'track_mouse_fast': True,      # if true only track segments of videos around the stimuli
-    'use_stdtracking': True,       # Use standard tracking (written by FC)
+    'use_stdtracking': False,       # Use standard tracking (written by FC)
     'stdtracking_justCoM': True,   # When using the standard tracking just extract the Centre of Mass and
                                    # not other variables [e.g. orientation]. This is TRUE by default
     'use_deeplabcut': True,        # Use deepLabCut to track the mouse
@@ -73,8 +73,12 @@ track_options = {
 
 # looms '180603', '180604', '180605', '180606', '180607', '180625', '180626', '180628', '180801'
 # ultrasounds '180823', '180907', '180909', '180928', '180929'
+# three arms: '180603', '180604', '180605', '180606', '180607'
 # two arms '180625', '180626', '180628'
 # squared: '180801', '180823'
+# two and a half: '180907', '180909'
+# all squared: '180801', '180823', '180907', '180909'
+# flip flop: '180928', '180929'
 
 
 #######################
@@ -102,10 +106,11 @@ Cohort gives the option to pool the data from all the sessions analysed for grou
 # make sure to set selector type as 'cohort' if you want to work on cohorts
 cohort = True                       # make a cohort or process existing one
 cohort_options = {
-    'name': 'CH_flipflop',     # Name of the cohort
+    'name': '02_32rms_byarm',     # Name of the cohort
     'selector type': 'date',     # what to select the sessions to pool by [e.g. by experiment, by date...]
+    # actual values to select by {e.g. session ID number}
     'selector': ['180603', '180604', '180605', '180606', '180607', '180625', '180626', '180628',
-                 '180801', '180823', '180830', '180901', '180907', '180909', '180928', '180929'],       # actual values to select by {e.g. session ID number]
+                 '180801', '180823', '180907', '180909', '180928', '180929',  '181012', '181013', '181014'],
     'data to pool': ['tracking']    # what data from the sessions you want to pool in the cohort (e.g. tracking)
 }
 

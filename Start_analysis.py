@@ -11,7 +11,7 @@ from Utils.Data_rearrange_funcs import create_cohort, check_session_selected
 from Utils.Messaging import slack_chat_messenger
 from Utils.decorators import clock
 
-from maze import Processing_main
+from Processing import Processing_main
 from Plotting import Single_trial_summary
 
 from Config import load_database, update_database, load_name, save_name\

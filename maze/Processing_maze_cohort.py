@@ -14,14 +14,15 @@ matplotlib.rcParams['xtick.color'] = [.8, .8, .8]
 matplotlib.rcParams['ytick.color'] = [.8, .8, .8]
 plt.rcParams.update(params)
 
+import re
 import platform
 import math
 import random
 from scipy import stats
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.externals import joblib as pickle
-# import dill as pickle
+# from sklearn.externals import joblib as pickle
+import dill as pickle
 
 from Plotting.Plotting_utils import make_legend, save_all_open_figs, create_figure, show, ticksrange
 from Utils.maths import line_smoother
@@ -35,7 +36,7 @@ arms_colors = dict(left=(255, 0, 0), central=(0, 255, 0), right=(0, 0, 255), she
 
 
 class MazeCohortProcessor:
-    def __init__(self, cohort=None, store_tracking=True, load=False):
+    def __init__(self, cohort=None, store_tracking=True, load=False, ml=True):
 
         if 'Windows' in platform.system():
             fig_save_fld = 'D:\\Dropbox (UCL - SWC)\\Dropbox (UCL - SWC)\\Rotation_vte\\Presentations\\181017_graphs'
@@ -61,23 +62,20 @@ class MazeCohortProcessor:
             name = 'all_trials'
             self.load_dataframe()
 
+        if ml: EscapePrediction(self.triald_df)
 
-        EscapePrediction(self.triald_df)
-
-
-
-        self.for_labmeeting()
-
-        save_all_open_figs(target_fld=fig_save_fld, name=name, format='svg')
-        plt.show()
-        a = 1
+        # self.for_labmeeting()
+        #
+        # save_all_open_figs(target_fld=fig_save_fld, name=name, format='svg')
+        # plt.show()
+        # a = 1
 
 ########################################################################################################################
     ###  DATA SEGMENTATION FUNCTIONS ####
 ########################################################################################################################
     def from_trials_to_dataframe(self, metad, tracking_data, store_tracking, clip_tracking_data=True):
         t = namedtuple('trial', 'name session origin escape stimulus experiment '
-                                'configuration atstim tracking')
+                                'configuration atstim atmediandetection atpostmediandetection tracking')
         data = []
         for trial in tracking_data.trials:
             outcome = trial.processing['Trial outcome']['trial_outcome']
@@ -95,15 +93,13 @@ class MazeCohortProcessor:
                 if store_tracking:
                     if clip_tracking_data:
                         trial = crop_trial_tracking(trial)
-                    d = t(trial.name, tr_sess_id, trial.processing['Trial outcome']['threat_origin_arm'],
-                          trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
-                          trial.processing['Trial outcome']['maze_configuration'],
-                          trial.processing['status at stimulus'], trial)
-                else:
-                    d = t(trial.name, tr_sess_id, trial.processing['Trial outcome']['threat_origin_arm'],
-                          trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
-                          trial.processing['Trial outcome']['maze_configuration'],
-                          trial.processing['status at stimulus'], None)
+                    else: trial = None
+
+                d = t(trial.name, tr_sess_id, trial.processing['Trial outcome']['threat_origin_arm'],
+                      trial.processing['Trial outcome']['threat_escape_arm'], trial.metadata['Stim type'], exp,
+                      trial.processing['Trial outcome']['maze_configuration'],
+                      trial.processing['status at stimulus'], trial.processing['status at Median Detection'],
+                      trial.processing['status at Post median Detection'], trial)
                 data.append(d)
         self.triald_df = pd.DataFrame(data, columns=t._fields)
 
@@ -172,12 +168,16 @@ class MazeCohortProcessor:
             threat_loc = (threat_loc.topleft[0] + (threat_loc.bottomright[0] - threat_loc.topleft[0]) / 2,
                           threat_loc.topleft[1] + (threat_loc.bottomright[1] - threat_loc.topleft[1]) / 2)
 
-            p = (tr['tracking'].processing['status at stimulus'][1]['x'],
-                 tr['tracking'].processing['status at stimulus'][1]['y'])
-            adjp = (p[0]-threat_loc[0], p[1]-threat_loc[1])
+            statuses = ['status at stimulus', 'status at Median Detection', 'status at Post median Detection']
+            for s in statuses:
+                p = (tr['tracking'].processing[s][1]['x'],
+                     tr['tracking'].processing[s][1]['y'])
+                adjp = (p[0]-threat_loc[0], p[1]-threat_loc[1])
 
-            tr['atstim'][1]['adjusted x'] = adjp[0]
-            tr['atstim'][1]['adjusted y'] = adjp[1]
+                if s == 'status at stimulus': s = 'atstim'
+                else: s = ''.join(s.split(' ')[1:])
+                tr[s.lower()][1]['adjusted x'] = adjp[0]
+                tr[s.lower()][1]['adjusted y'] = adjp[1]
         if save:
             self.triald_df['tracking'] = None
             self.save_dataframe()
