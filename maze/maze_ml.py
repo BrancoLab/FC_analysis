@@ -10,12 +10,13 @@ from sklearn.linear_model import SGDClassifier, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.svm import SVC
+import suftware as sw
 
 import sys
 
 
 class EscapePrediction:
-    def __init__(self, data, explore=False):
+    def __init__(self, data, suft=True, explore=False):
         self.data = data
         self.data_handling = DataProcessing(self.data)
 
@@ -25,6 +26,9 @@ class EscapePrediction:
 
         if explore:
             self.explore_data(verbose=False, show_scatter_matrx=True)
+
+        if suft:
+            SUFT.calc_density_for_dataframe(self.prepped_data)
 
         # define models
         # train
@@ -54,7 +58,7 @@ class EscapePrediction:
 
     def create_trainingvstest_data(self):
         # Create training and test dataset
-        self.training_data, self.training_labels, _, complete_test = self.data.get_training_test_datasets(self.data)
+        self.training_data, self.training_labels, _, complete_test = self.data_handling.get_training_test_datasets(self.data)
         self.colors = ['r' if v else 'g' for v in self.training_labels.values]
 
         # Remove categoricals
@@ -340,5 +344,28 @@ class DataProcessing:
         x = training_set.drop(columns=['escape'])
         y = training_set['escape']
         return x, y, training_set, test_set
+
+
+class SUFT:
+    def __init__(self, data):
+        self.data = data
+
+    @staticmethod
+    def calc_density_for_dataframe(data, display=True):
+        for col in data.columns:
+            d = data[col].values
+
+            try:
+                density = sw.DensityEstimator(d)
+            except:
+                continue
+            density.plot(title=col)
+
+
+
+
+
+
+
 
 
