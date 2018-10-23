@@ -20,11 +20,16 @@ class EscapePrediction:
         self.data_handling = DataProcessing(self.data)
 
         self.define_params()
-        self.prepped_data()
+        self.prepare_data()
         self.create_trainingvstest_data()
 
         if explore:
             self.explore_data(verbose=False, show_scatter_matrx=True)
+
+        # define models
+        # train
+        # test
+        # visualise
 
     ##################  SET UP
 
@@ -42,8 +47,8 @@ class EscapePrediction:
         # Prepare the dataframe
         self.prepped_data = self.data_handling.prep_status_atstim_data(self.data, scaledata=False,
                                                               excluded_params=None,
-                                                              included_params=None,
-                                                              categoricals=None)
+                                                              included_params=self.all_params['included'],
+                                                              categoricals=self.all_params['categoricals'])
         # Clean up and remove categoricals
         self.prepped_data = self.data_handling.remove_error_trials(self.prepped_data)
 
@@ -284,33 +289,49 @@ class DataProcessing:
         if excluded_params is None: excluded_params = []
         if included_params is None: included_params = status_vars
         if categoricals is None: categoricals = []
-        
+
         # Select the relevant data columns from the dataset df
-        status = {v: [] for v in status_vars if v not in excluded_params}
-        for s in dataset.atstim.values:
-            for v, val in s[1].items():
-                if v in excluded_params: continue
-                if v not in included_params:
-                    continue
-                else:
-                    if v in ['Orientation', 'Head angle']:
-                        while val > 360: val -= 360
-                    status[v].append(val)
+        statuses = ['atstim', 'atmediandetection', 'atpostmediandetection']
+        status = {}
+        list_of_st_dict = []
+        for i, st in enumerate(statuses):
+            status_vars = dataset.iloc[0][st][1].keys()
+            temp_status = {'{}_{}'.format(st, v): [] for v in status_vars if v not in excluded_params}
+            for s in dataset[st].values:
+                for v, val in s[1].items():
+                    if v in excluded_params: continue
+                    if v not in included_params:
+                        continue
+                    else:
+                        if v in ['Orientation', 'Head angle']:
+                            while val > 360: val -= 360
+                        temp_status['{}_{}'.format(st, v)].append(val)
+            list_of_st_dict.append(temp_status)
 
-        # Scale the data
-        if scaledata:
-            for k, v in status.items():
-                if not v: continue
-                else: status[k] = self.scale_data(v)
+            # Scale the data
+            if scaledata:
+                for k, v in temp_status.items():
+                    if not v: continue
+                    else: temp_status[k] = self.scale_data(v)
 
+        # Get categoricals and labels
         for name in categoricals:
             if name in included_params:
                 status[name] = dataset[name].values
-
         status['escape'] = dataset['escape'].values
 
-        final_status = {k: v for k, v in status.items() if np.any(v)}
-        df = pd.DataFrame.from_dict(final_status)
+        # Clean up data and return
+        status_df = pd.DataFrame.from_dict(status, orient='index')
+        status_df = status_df.replace(to_replace='None', value=np.nan).dropna(how='all')
+        status_df = status_df.transpose()
+        temp = {**list_of_st_dict[0], **list_of_st_dict[1], **list_of_st_dict[2]}
+        df = pd.DataFrame.from_dict(temp, orient='index')
+        df = df.replace(to_replace='None', value=np.nan).dropna(how='all')
+        df = df.transpose()
+        for col in status_df.columns:
+            d = status_df[col]
+            df[col] = d
+
         return df
 
     @staticmethod
@@ -319,6 +340,5 @@ class DataProcessing:
         x = training_set.drop(columns=['escape'])
         y = training_set['escape']
         return x, y, training_set, test_set
-
 
 
