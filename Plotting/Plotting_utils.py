@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 
-def make_legend(ax, c1, c2, changefont=False):
+def make_legend(ax, c1=[0.1, .1, .1], c2=[0.8, 0.8, 0.8], changefont=False):
     """
     Make a legend with background color c1, edge color c2 and optionally a user selected font size
     """

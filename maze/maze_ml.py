@@ -2,6 +2,10 @@ import pandas as pd
 from pandas.plotting import scatter_matrix
 import matplotlib.pyplot as plt
 import numpy as np
+
+from Utils.maths import calc_distance_2d, calc_angle_2d
+from Plotting.Plotting_utils import create_figure, make_legend
+
 from sklearn.model_selection import train_test_split, cross_val_score, cross_val_predict
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, precision_recall_curve, f1_score, \
     roc_curve, roc_auc_score
@@ -16,7 +20,11 @@ import sys
 
 
 class EscapePrediction:
-    def __init__(self, data, suft=True, explore=False):
+    def __init__(self, data, suft=True, explore=True):
+        self.select_subset = True
+        self.select_by_tag = 'experiment'
+        self.select_by_values = ['Square Maze', 'TwoAndahalf Maze']
+
         self.data = data
         self.data_handling = DataProcessing(self.data)
 
@@ -39,22 +47,31 @@ class EscapePrediction:
 
     def define_params(self):
         self.all_params = dict(
-            included=['adjusted x', 'Orientation', 'adjusted y'],
-            excluded=['name', 'likelihood', 'maze_roi', 'x', 'y', 'Accelearation', 'Head ang acc'],
-            categoricals=['stimulus', 'origin']
+            included=['x', 'y', 'adjusted x', 'Orientation', 'adjusted y'],
+            excluded=['name', 'likelihood', 'maze_roi', 'Accelearation', 'Head ang acc'],
+            categoricals=['stimulus', 'origin'],
+            statuses=['atstim', 'atmediandetection', 'atpostmediandetection']
         )
 
     def prepare_data(self):
-        self.select_by_tag = 'experiment'
-        self.select_by_values = ['Square Maze']
+        # Select trials subset
+        if self.select_subset:
+            self.data = self.data_handling.subset_bytag(data=self.data, tag=self.select_by_tag,
+                                                        values=self.select_by_values)
 
         # Prepare the dataframe
         self.prepped_data = self.data_handling.prep_status_atstim_data(self.data, scaledata=False,
-                                                              excluded_params=None,
-                                                              included_params=self.all_params['included'],
-                                                              categoricals=self.all_params['categoricals'])
+                                                                       excluded_params=None,
+                                                                       included_params=self.all_params['included'],
+                                                                       categoricals=self.all_params['categoricals'],
+                                                                       statuses=self.all_params['statuses'])
+
         # Clean up and remove categoricals
         self.prepped_data = self.data_handling.remove_error_trials(self.prepped_data)
+
+        # Extract new metrics
+        self.data_handling.calculate_new_metrics(self.prepped_data, timepoints=self.all_params['statuses'],
+                                                 display=True)
 
     def create_trainingvstest_data(self):
         # Create training and test dataset
@@ -68,17 +85,11 @@ class EscapePrediction:
     ##################   EXPLORE DATA
 
     def explore_data(self, verbose=False, show_scatter_matrx=True):
-        self.prepped_data.head()
-        self.prepped_data.info()
-        self.prepped_data.describe()
-        self.prepped_data.hist()
-        # self.prepped_data.plot(kind='scatter', x='adjusted x', y='adjusted y', alpha=.5)
-        self.corrr_mtx = self.prepped_data.corr()
         self.training_data.head()
         self.training_data.info()
         self.training_data.describe()
         self.training_data.hist()
-        self.training_data.plot(kind='scatter', x='adjusted x', y='adjusted y', alpha=.5)
+        # self.training_data.plot(kind='scatter', x='adjusted x', y='adjusted y', alpha=.5)
         self.corrr_mtx = self.training_data.corr()
 
         if verbose:
@@ -91,6 +102,8 @@ class EscapePrediction:
 
     def show_scatter_matrix(self):
         attributes = self.prepped_data.keys()
+        exclude_words = ['bridge', 'platform', 'BL']
+        # TODO clean up attributes
         scatter_matrix(self.prepped_data[attributes],  color=self.colors, diagonal='kde', s=200, alpha=0.75)
 
     ##################  TRAIN MODELS
@@ -206,6 +219,7 @@ class DataProcessing:
             if values is None:
                 data = self.data[self.data[tag]]
             else:
+                if not isinstance(values, list): values = list(values)
                 data = self.data[self.data[tag].isin(values)]
 
             return data
@@ -281,7 +295,7 @@ class DataProcessing:
         return scaled.flatten()
 
     def prep_status_atstim_data(self, dataset, scaledata=False, excluded_params=None, included_params=None,
-                                categoricals=None):
+                                categoricals=None, statuses=None, include_maze_rois=True):
         """  Given a dataset, for each trial extract the values corresponding to each statusat_... separately
          in different dataframes """
         # Extract the relevant information
@@ -293,9 +307,9 @@ class DataProcessing:
         if excluded_params is None: excluded_params = []
         if included_params is None: included_params = status_vars
         if categoricals is None: categoricals = []
+        if statuses is None: statuse = ['atstim', 'atmediandetection', 'atpostmediandetection']
 
         # Select the relevant data columns from the dataset df
-        statuses = ['atstim', 'atmediandetection', 'atpostmediandetection']
         status = {}
         list_of_st_dict = []
         for i, st in enumerate(statuses):
@@ -324,18 +338,60 @@ class DataProcessing:
                 status[name] = dataset[name].values
         status['escape'] = dataset['escape'].values
 
+        # Get position of maze rois
+        # good names med/far platform TtoP/PtoS bridge
+        goodnames = ['left_med_platform', 'left_far_platform', 'left_PtoS_bridge', 'left_TtoP_bridge',
+                     'right_med_platform', 'right_far_platform', 'right_PtoS_bridge', 'right_TtoP_bridge',
+                     'Threat_platform', 'Shelter_platform', 'meanBL']
+        rois_list = []
+        if include_maze_rois:
+            for n in range(len(dataset)):
+                good_rois = {n:None for n in goodnames}
+                rois = dataset['tracking'].iloc[n].processing['Trial outcome']['maze_rois']
+                for roi, pos in rois.items():
+                    if roi in ['Central_TtoS_bridge', 'Central_TtoX_bridge']:
+                        continue
+                    elif roi == 'Threat_platform':
+                        good_rois['Threat_platform'] = pos
+                    elif roi == 'Shelter_platform':
+                        good_rois['Shelter_platform'] = pos
+                    elif 'Left' in roi:
+                        if 'med' in roi: good_rois['left_med_platform'] = pos
+                        elif 'far' in roi: good_rois['left_far_platform'] = pos
+                        elif 'S' in roi: good_rois['left_PtoS_bridge'] = pos
+                        elif 'T' in roi: good_rois['left_TtoP_bridge'] = pos
+                        else: continue
+                    elif 'Right: in roi':
+                        if 'med' in roi: good_rois['right_med_platform'] = pos
+                        elif 'far' in roi: good_rois['right_far_platform'] = pos
+                        elif 'S' in roi: good_rois['right_PtoS_bridge'] = pos
+                        elif 'T' in roi: good_rois['right_TtoP_bridge'] = pos
+                        else: continue
+                good_rois['meanBL'] = np.mean(dataset['tracking'].iloc[n].dlc_tracking['Posture']['body']['Body length'])
+                rois_list.append(good_rois)
+            roisdf = pd.DataFrame(rois_list)
+
         # Clean up data and return
         status_df = pd.DataFrame.from_dict(status, orient='index')
         status_df = status_df.replace(to_replace='None', value=np.nan).dropna(how='all')
         status_df = status_df.transpose()
-        temp = {**list_of_st_dict[0], **list_of_st_dict[1], **list_of_st_dict[2]}
+        if len(list_of_st_dict) == 1:
+            temp = {**list_of_st_dict[0]}
+        else:
+            temp = {**list_of_st_dict[0], **list_of_st_dict[1], **list_of_st_dict[2]}
         df = pd.DataFrame.from_dict(temp, orient='index')
         df = df.replace(to_replace='None', value=np.nan).dropna(how='all')
         df = df.transpose()
+
+        # Now merge everything
         for col in status_df.columns:
             d = status_df[col]
             df[col] = d
 
+        if include_maze_rois:
+            for col in roisdf.columns:
+                d = roisdf[col]
+                df[col] = d
         return df
 
     @staticmethod
@@ -344,6 +400,142 @@ class DataProcessing:
         x = training_set.drop(columns=['escape'])
         y = training_set['escape']
         return x, y, training_set, test_set
+
+    def calculate_new_metrics(self, data, timepoints=None, display=False):
+        data = self.get_distance_to_Rescape_arm(data, timepoints=timepoints, visualise=display)
+        data = self.get_Rescapelength_and_angletoRescape(data, timepoints=timepoints, visualise=display)
+
+
+        # plt.show()
+        a = 1
+
+    @staticmethod
+    def calc_roi_centre(roi):
+        d = (int((roi.bottomright[0] - roi.topleft[0]) / 2),
+             int((roi.bottomright[1] - roi.topleft[1]) / 2))
+        d = (d[0]+roi.topleft[0], d[1]+roi.topleft[1])
+        return d
+
+    @staticmethod
+    def add_col_to_df(df, lst, tag):
+        temp = pd.DataFrame(lst)
+        df[tag] = temp[0]
+        return df
+
+    def get_distance_to_Rescape_arm(self, data, timepoints=None, visualise=False):
+        if timepoints is None: raise ValueError('incorrect input')
+        # Get the distance to the arm of escape
+        for tp in timepoints:
+            distance_to_ebridge = []
+            xpos, r_xpos, l_xpos = [], [], []
+            re_distance_to_ebridge, le_distance_to_ebridge = [], []
+
+            for n in range(len(data)):
+                tr = data.iloc[n]
+                pos = (tr['{}_x'.format(tp)], tr['{}_y'.format(tp)])
+
+                xpos.append(tr['{}_adjusted x'.format(tp)])
+
+                # Get distance of escape bridge
+                esc_bridge_pos = self.calc_roi_centre(tr['right_TtoP_bridge'])
+
+                dst = calc_distance_2d((pos, esc_bridge_pos), vectors=False)/tr['meanBL']
+                distance_to_ebridge.append(dst)
+
+                if 'right' in tr['escape']:
+                    re_distance_to_ebridge.append(dst)
+                    r_xpos.append(tr['{}_adjusted x'.format(tp)])
+                else:
+                    le_distance_to_ebridge.append(dst)
+                    l_xpos.append(tr['{}_adjusted x'.format(tp)])
+
+            if visualise:
+                all_den = SUFT.calc_density_for_list(distance_to_ebridge)
+                r_den = SUFT.calc_density_for_list(re_distance_to_ebridge)
+                l_den = SUFT.calc_density_for_list(le_distance_to_ebridge)
+
+                x_den = SUFT.calc_density_for_list(xpos)
+                rx_den = SUFT.calc_density_for_list(r_xpos)
+                lx_den = SUFT.calc_density_for_list(l_xpos)
+
+
+                f, ax = create_figure(nrows=2)
+                ax[0].plot(all_den.values, color='b', linewidth=2, label='All')
+                ax[0].plot(r_den.values, color='r', alpha=.5, label='R')
+                ax[0].plot(l_den.values, color='g', alpha=.5, label='L')
+                ax[0].set(facecolor=[.2, .2, .2], xlim=[100, 0], title='distance to R arm - {}'.format(tp))
+                make_legend(ax[0], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
+
+                ax[1].plot(x_den.values, color='b', linewidth=2, label='All')
+                ax[1].plot(rx_den.values, color='r', alpha=.5, label='R')
+                ax[1].plot(lx_den.values, color='g', alpha=.5, label='L')
+                ax[1].set(facecolor=[.2, .2, .2], xlim=[100, 0], title='Adjusted x pos - {}'.format(tp))
+                make_legend(ax[1], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
+
+            data = self.add_col_to_df(data, distance_to_ebridge, '{}_distance_to_ebridge'.format(tp))
+        return data
+
+    def get_Rescapelength_and_angletoRescape(self, data, timepoints=None, visualise=False):
+        if timepoints is None: raise ValueError('incorrect input')
+
+        normed_rpath_len, ang_to_r = [], []
+        r_ang_to_r, l_ang_to_r = [], []
+        for n in range(len(data)):
+            tr = data.iloc[n]
+            pos = (tr.atstim_x, tr.atstim_y)
+            shelter = self.calc_roi_centre(tr['Shelter_platform'])
+            threat = self.calc_roi_centre(tr['Threat_platform'])
+
+            if tr.left_far_platform is not None:
+                lplat = self.calc_roi_centre(tr['left_far_platform'])
+            else:
+                lplat = self.calc_roi_centre(tr['left_med_platform'])
+
+            if tr.right_far_platform is not None:
+                rplat = self.calc_roi_centre(tr['right_far_platform'])
+            else:
+                rplat = self.calc_roi_centre(tr['right_med_platform'])
+
+            l_len = (calc_distance_2d((threat, lplat), vectors=False)
+                     + calc_distance_2d((lplat, shelter), vectors=False))/tr['meanBL']
+            r_len = (calc_distance_2d((threat, rplat), vectors=False)
+                     + calc_distance_2d((rplat, shelter), vectors=False))/tr['meanBL']
+            normed_rpath_len.append(round(r_len/l_len, 1))
+
+            # calc angle to r bridge
+            # TODO fix angles
+            for i, tp in enumerate(timepoints):
+                thetaR = calc_angle_2d(pos, rplat)
+                theta = tr['{}_Orientation'.format(tp)]
+                while theta > 360: theta -= 360
+                ang = thetaR - theta
+                ang_to_r.append(ang)
+                esc = tr['escape']
+                if 'right' in esc:
+                    r_ang_to_r.append(ang)
+                else:
+                    l_ang_to_r.append(ang)
+
+                data = self.add_col_to_df(data, ang_to_r, '{}_angle_to_rplatf'.format(tp))
+
+        data = self.add_col_to_df(data, normed_rpath_len, 'normed_rpath_len')
+
+        if visualise:
+            f, ax = create_figure()
+            ax.hist(normed_rpath_len, color='b')
+            ax.set(facecolor=[.2, .2, .2], title='Normalised R path length')
+            make_legend(ax, [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
+
+            for i, tp in enumerate(timepoints):
+                if i == 0:
+                    f, ax = create_figure(nrows=len(timepoints))
+                ax[i].hist(ang_to_r, color='b')
+                ax[i].hist(r_ang_to_r, color='r', alpha=.5, label='R')
+                ax[i].hist(l_ang_to_r, color='g', alpha=.5, label='L')
+                ax[i].set(facecolor=[.2, .2, .2], title='Angle to R platform {}'.format(tp))
+                make_legend(ax[1], [0.1, .1, .1], [0.8, 0.8, 0.8], changefont=16)
+
+        return data
 
 
 class SUFT:
@@ -359,9 +551,12 @@ class SUFT:
                 density = sw.DensityEstimator(d)
             except:
                 continue
-            density.plot(title=col)
 
+            if display: density.plot(title=col)
 
+    @staticmethod
+    def calc_density_for_list(data):
+        return sw.DensityEstimator(np.asarray(data))
 
 
 
