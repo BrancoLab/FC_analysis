@@ -1,5 +1,7 @@
 from Utils.imports import *
 
+from Processing.Processing_posereconstruction import OverseeConstruction
+
 from Config import processing_options, exp_type
 
 
@@ -32,7 +34,6 @@ class Processing:
                     # Save info about processing options in the metadata
                     self.define_processing_metadata()
                     # Apply processes in parallel
-                    # TODO use decorator to make sure that functions are automatically added to the list, avoid bugs
                     funcs = [self.extract_bodylength, self.extract_velocity, self.extract_orientation]
                     pool = ThreadPool(len(funcs))
                     [pool.apply(func) for func in funcs]
@@ -48,6 +49,11 @@ class Processing:
                     warnings.warn('Could not analyse this trial!!!')  # but avoid crashing the whole analysis
                     print(colored('          trial {} could not be processed!'.format(data_name), 'yellow'))
                     # slack_chat_messenger('Could not process trial {}'.format(data_name))
+
+
+                # Do pose reconstruction
+                OverseeConstruction(data=tracking_data)
+
 
         # Call experiment specific processing tools [only implemented for maze experiments]
         if self.settings['apply exp-specific']:

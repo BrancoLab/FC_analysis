@@ -1,5 +1,7 @@
 datalog: 'D:\Dropbox (UCL - SWC)\Dropbox (UCL - SWC)\Rotation_vte\analysis\datalog.xls'
-save fld: 'D:\Dropbox (UCL - SWC)\Dropbox (UCL - SWC)\Rotation_vte\analysis'
+# save fld: 'D:\Dropbox (UCL - SWC)\Dropbox (UCL - SWC)\Rotation_vte\analysis'
+save fld: '/Users/federicoclaudi/Desktop'
+
 DLC folder: 'C:\Users\Federico\Documents\GitHub\DeepLabCut'
 
 
