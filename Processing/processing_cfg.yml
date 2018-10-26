@@ -1,4 +1,4 @@
-apply standard processing: false   # Apply general processing functions or not
+apply standard processing: true   # Apply general processing functions or not
 
 # Setting for POSE reconstruction
 # Names of the DLC bodyparts tags for the different bodyparts
@@ -25,6 +25,6 @@ ang vel unit: 'degperframe'      # Unit of meausre of angulare velocity, Either 
 
 
 # Experiment-specific settings:
-apply exp-specific: true     # apply some experiment specific analysis steps or not
+apply exp-specific: false     # apply some experiment specific analysis steps or not
 debug exp-specific: false     # debug mode ON
 templates folder: 'D:\Dropbox (UCL - SWC)\Dropbox (UCL - SWC)\Rotation_vte\analysis\Maze_templates'

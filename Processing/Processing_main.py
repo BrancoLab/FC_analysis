@@ -50,9 +50,17 @@ class Processing:
                     print(colored('          trial {} could not be processed!'.format(data_name), 'yellow'))
                     # slack_chat_messenger('Could not process trial {}'.format(data_name))
 
-
                 # Do pose reconstruction
-                OverseeConstruction(data=tracking_data)
+                poser = OverseeConstruction(session_metadata=session.Metadata, trial_metadata=tracking_data.metadata,
+                                    data=tracking_data)
+
+                poser.calculate_body_length()
+
+                if 'processing' not in tracking_data.__dict__.keys():
+                    setattr(tracking_data, 'processing', {})
+                tracking_data.processing['pose'] = poser.skeletons
+
+
 
 
         # Call experiment specific processing tools [only implemented for maze experiments]

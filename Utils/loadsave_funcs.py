@@ -1,6 +1,8 @@
 import pandas as pd
+
 try: import yaml
-except: pass
+except: import pyyaml as yaml
+
 import os
 from warnings import warn
 from termcolor import colored

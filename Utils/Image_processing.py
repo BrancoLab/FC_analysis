@@ -1,4 +1,7 @@
-import cv2
+import platform
+
+if 'Windows' in platform.system():
+    import cv2
 
 
 def process_background(background, track_options):
