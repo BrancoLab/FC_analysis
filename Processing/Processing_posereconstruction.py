@@ -288,28 +288,65 @@ class OverseeConstruction:
             head_main.append(skeleton.head_connections['main_axis'].length)
             head_side.append(skeleton.head_connections['ear_axis'].length)
 
-
         if visualise:
-            f, axarr = create_figure(nrows=2)
+            f, axarr = create_figure(nrows=3)
 
-            axarr[0].plot(np.divide(axis_lengths, axis_lengths[1799]), linewidth=2, alpha=.7, label='body axis')
-            axarr[0].plot(np.divide(fake_axis_lengths, fake_axis_lengths[1799]), linewidth=2, alpha=.7, label='snout axis')
-            axarr[1].plot(np.divide(head_main, head_main[1799]), linewidth=2, alpha=.7, label='main head')
-            axarr[1].plot(np.divide(head_side, head_side[1799]), linewidth=2, alpha=.7, label='side head')
+            axarr[0].plot(np.divide(axis_lengths, np.mean(axis_lengths)), linewidth=2, alpha=.7, label='body axis')
+            axarr[0].plot(np.divide(fake_axis_lengths, np.mean(fake_axis_lengths)), linewidth=2, alpha=.7, label='snout axis')
+            axarr[1].plot(np.divide(head_main, np.mean(head_main)), linewidth=2, alpha=.7, label='main head')
+            axarr[1].plot(np.divide(head_side, np.mean(head_side)), linewidth=2, alpha=.7, label='side head')
+            axarr[2].plot(np.divide(fake_axis_lengths, axis_lengths),  linewidth=2, alpha=.7, label='Fake/Real')
 
-            for ax in axarr:
-                ax.set(xlim=[1775, 1830], facecolor=[.2, .2, .2])
+            for i, ax in enumerate(axarr):
+                ax.set(xlim=[1775, 1830], ylim=[.25, 1.75], facecolor=[.2, .2, .2])
                 ax.axvline(1800, color='w')
                 make_legend(ax, changefont=8)
 
-            plt.show()
+            # plt.show()
 
+    def show_bps_tracjectory(self, ax=None, bps=None, show_as_axis=True):
+        colors = dict(
+            snout=[.2, .8, .1],
+            body=[.5, .4, .8],
+            tail=[.7, .2, .2]
+        )
 
+        if bps is None: return
+        if not isinstance(bps, list): bps = list(bps)
+
+        # get position of each bp
+        traces = {bp:[] for bp in bps}
+        for skeleton in self.skeletons:
+            all_bps = {**skeleton.head, **skeleton.body, **skeleton.tail}
+            for bp in bps:
+                traces[bp].append(all_bps[bp].position)
+
+        # plot traces
+        range_lim = (1799, 2100)
+        if ax is None: f, ax = create_figure()
+        ax.set(facecolor=[.2, .2, .2], ylim=[550, 0])
+
+        if not show_as_axis:
+            for bp in bps:
+                ax.scatter([p[0] for p in traces[bp][range_lim[0]:range_lim[1]]],
+                           [p[1] for p in traces[bp][range_lim[0]:range_lim[1]]],
+                           color=colors[bp], s=10, alpha=.85)
+        else:
+            for i in range(range_lim[0], range_lim[1]):
+                if i % 10 == 0:
+                    head = traces['snout'][i]
+                    body = traces['body'][i]
+                    tail = traces['tail'][i]
+
+                    ax.scatter(head[0], head[1],
+                            color=colors['tail'], s=50)
+                    ax.plot([head[0], body[0]], [head[1], body[1]],
+                            color=colors['snout'], linewidth=2, alpha=.85)
+                    ax.plot([body[0], tail[0]], [body[1], tail[1]],
+                            color=colors['body'], linewidth=2, alpha=.85)
+
+        # plt.show()
         a = 1
-
-
-
-
 
 
 

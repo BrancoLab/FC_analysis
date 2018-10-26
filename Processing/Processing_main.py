@@ -1,6 +1,7 @@
 from Utils.imports import *
 
 from Processing.Processing_posereconstruction import OverseeConstruction
+from Plotting.Plotting_utils import *
 
 from Config import processing_options, exp_type
 
@@ -18,6 +19,10 @@ class Processing:
 
         self.session = session
         self.database = database
+
+        # Generate figures
+        skeletons_plot, sk_ax = create_figure()
+
 
         # Process tracking data
         if self.settings['apply standard processing']:
@@ -55,13 +60,11 @@ class Processing:
                                     data=tracking_data)
 
                 poser.calculate_body_length()
+                poser.show_bps_tracjectory(bps=['snout', 'body', 'tail'], ax=sk_ax)
 
                 if 'processing' not in tracking_data.__dict__.keys():
                     setattr(tracking_data, 'processing', {})
                 tracking_data.processing['pose'] = poser.skeletons
-
-
-
 
         # Call experiment specific processing tools [only implemented for maze experiments]
         if self.settings['apply exp-specific']:
