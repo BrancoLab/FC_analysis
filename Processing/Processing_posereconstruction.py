@@ -223,7 +223,11 @@ class OverseeConstruction:
     """  get tracking data, loop over frames - call classes and handle output  """
     def __init__(self, session_metadata=None, trial_metadata=None, data=None, display=False, display_many=False):
         print('Extracting posture from DLC data')
+
         dlc_posture = data.dlc_tracking['Posture']
+
+        self.at_shelter = data.processing['Trial outcome']['first_at_shelter']
+
         nframes = len(list(dlc_posture.values())[0])
 
         # Get list of bodyparts present in both model and data
@@ -298,17 +302,23 @@ class OverseeConstruction:
             axarr[2].plot(np.divide(fake_axis_lengths, axis_lengths),  linewidth=2, alpha=.7, label='Fake/Real')
 
             for i, ax in enumerate(axarr):
-                ax.set(xlim=[1775, 1830], ylim=[.25, 1.75], facecolor=[.2, .2, .2])
+                ax.set(xlim=[1799, 2100], ylim=[.25, 1.75], facecolor=[.2, .2, .2])
                 ax.axvline(1800, color='w')
                 make_legend(ax, changefont=8)
+            axarr[2].set(ylim=[.8, 1.2])
 
             # plt.show()
 
     def show_bps_tracjectory(self, ax=None, bps=None, show_as_axis=True):
+        # colors = dict(
+        #     snout=[.2, .8, .1],
+        #     body=[.5, .4, .8],
+        #     tail=[.7, .2, .2]
+        # )
         colors = dict(
-            snout=[.2, .8, .1],
-            body=[.5, .4, .8],
-            tail=[.7, .2, .2]
+            snout=[.7, .7, .7],
+            body=[.7, .7, .7],
+            tail=[.7, .7, .7]
         )
 
         if bps is None: return
@@ -339,21 +349,97 @@ class OverseeConstruction:
                     tail = traces['tail'][i]
 
                     ax.scatter(head[0], head[1],
-                            color=colors['tail'], s=50)
+                            color=colors['tail'], s=40)
                     ax.plot([head[0], body[0]], [head[1], body[1]],
-                            color=colors['snout'], linewidth=2, alpha=.85)
+                            color=colors['snout'], linewidth=4, alpha=.85)
                     ax.plot([body[0], tail[0]], [body[1], tail[1]],
-                            color=colors['body'], linewidth=2, alpha=.85)
+                            color=colors['body'], linewidth=4, alpha=.85)
 
         # plt.show()
         a = 1
 
+    def show_metrics_timelines(self, focus_on_reaction=True):
+        colors = dict(
+            snout=[.2, .8, .1],
+            body=[.5, .4, .8],
+            tail=[.7, .2, .2]
+        )
+
+        fig, axarr = create_figure(nrows=5, share_x=True)
+        if focus_on_reaction:
+            x_range = [1790, 1830]
+        else:
+            x_range = [1770, self.at_shelter]
+
+        titles = ['Pose', 'X,Y position', 'Body len', 'Head axes ratio', 'Head/body velocity']
+        for i, ax in enumerate(axarr):
+            ax.set(facecolor=[.2, .2, .2], xlim=x_range, title=titles[i])
+            ax.axvline(1800, color='w')
+
+        frames = np.round(np.linspace(0, 3599, 3599))
+        frames_everyten = np.round(np.linspace(0, 3599, round(3599/1)))
+
+        # Plot otherstuff: xy_pos, body_len, head axis ratio
+        snout_trace, body_trace, body_length, head_axis_ratio = [], [], [], []
+        for f in frames:
+            try:
+                skeleton = self.skeletons[int(f)]
+            except: continue
+            snout_trace.append(skeleton.head['snout'].position)
+            body_trace.append(skeleton.body['body'].position)
+
+            body_length.append((skeleton.head_connections['main_axis'].length +
+                                skeleton.body_connections['front_body'].length +
+                                skeleton.body_connections['back_body'].length))
+
+            head_axis_ratio.append(skeleton.head_connections['main_axis'].length /
+                                   skeleton.head_connections['ear_axis'].length)
+
+        axarr[1].plot([p[0] for p in body_trace], color=[.2, .6, .2], linewidth=2, label='X')
+        axarr[1].plot([p[1] for p in body_trace], color=[.6, .2, .2], linewidth=2,  label='Y')
+        axarr[2].plot(np.divide(body_length, np.mean(body_length)), color=[.6, .2, .6], linewidth=2,  label='B.Len')
+        axarr[3].plot(head_axis_ratio, color=[.2, .6, .6], linewidth=2,  label='Main/Ear ratio')
+
+        v_body = np.diff(calc_distance_2d((np.asarray(body_trace).T), vectors=True))
+        v_snout = np.diff(calc_distance_2d((np.asarray(snout_trace).T), vectors=True))
+        axarr[4].plot(v_snout/v_body, color=[.6, .2, .6], linewidth=2,  label='snout/body ratio')
+
+        axarr[3].set(ylim=[-1, 4]), axarr[2].set(ylim=[0, 2]), axarr[4].set(ylim=[-15, 15]),
 
 
+        # Plot poses
+        bps = ['body', 'snout', 'tail']
+        for f in frames_everyten:
+            if f < min(x_range) or f > max(x_range): continue
+            try:
+                skeleton = self.skeletons[int(f)]
+            except: continue
+            all_bps = {**skeleton.head, **skeleton.body, **skeleton.tail}
+            traces = {}
+            for bp in bps:
+                pos = list(all_bps[bp].position)
+                traces[bp] = pos
 
+            offset_traces = {bp: [pos[0]-traces['body'][0]+f, pos[1]-traces['body'][1]] for bp, pos in traces.items()}
 
+            scaled_traces = {bp: [offset_traces['body'][0] + ((pos[0]-offset_traces['body'][0]) / 20),
+                                  offset_traces['body'][1] + ((pos[1] - offset_traces['body'][1]) / 20)]
+                             if not 'body' in bp else offset_traces['body'] for bp, pos in offset_traces.items()}
 
+            axarr[0].scatter(scaled_traces['snout'][0], scaled_traces['snout'][1], color=colors['snout'], s=30)
+            axarr[0].plot([scaled_traces['snout'][0], scaled_traces['body'][0]],
+                          [scaled_traces['snout'][1], scaled_traces['body'][1]],
+                       color=colors['body'], linewidth=2)
+            axarr[0].plot([scaled_traces['body'][0], scaled_traces['tail'][0]],
+                          [scaled_traces['body'][1], scaled_traces['tail'][1]],
+                       color=colors['tail'], linewidth=2)
 
+        axarr[0].set(ylim=[1, -1])
+
+        for ax in axarr:
+            make_legend(ax, changefont=6)
+
+        fig.tight_layout()
 
 
 

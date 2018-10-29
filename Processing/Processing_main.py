@@ -56,11 +56,15 @@ class Processing:
                     # slack_chat_messenger('Could not process trial {}'.format(data_name))
 
                 # Do pose reconstruction
-                poser = OverseeConstruction(session_metadata=session.Metadata, trial_metadata=tracking_data.metadata,
-                                    data=tracking_data)
+                try:
+                    poser = OverseeConstruction(session_metadata=session.Metadata, trial_metadata=tracking_data.metadata,
+                                        data=tracking_data)
+                except: continue
 
-                poser.calculate_body_length()
-                poser.show_bps_tracjectory(bps=['snout', 'body', 'tail'], ax=sk_ax)
+                # poser.calculate_body_length()
+                # TODO move these to plotting classes
+                # poser.show_bps_tracjectory(bps=['snout', 'body', 'tail'], ax=sk_ax)
+                # poser.show_metrics_timelines()
 
                 if 'processing' not in tracking_data.__dict__.keys():
                     setattr(tracking_data, 'processing', {})
