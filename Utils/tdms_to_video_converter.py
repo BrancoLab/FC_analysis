@@ -8,16 +8,20 @@ class TDMs_to_Video():
     # TODO Stitch .mp4s together
     # TODO convert mp4 to avi
     # TODO easier handling of saving destination
-    def __init__(self):
+    def __init__(self, batc=True, datafld=None):
         self.start_time = time.clock()
 
         # Specify path to TDMS file and temp folder where to store data
         # self.tempdir = mkdtemp(dir='D:\\')
         self.tempdir = 'D:\\temp'
-        filefld = 'Z:\\rig_bigrig\\cameratest'
-        filename = 'Prot18-24-default-119418055-video.tdms'
-        self.filepath = os.path.join(self.tempdir, filename)
+        for filename in os.listdir(datafld):
+            if not 'tdms' in filename: continue
+            else:
+                self.filepath = os.path.join(self.tempdir, filename)
+                self.convert_video()
 
+
+    def convert_video(self):
         # HARDCODED variables about the video recorded
         skip_data_points = 4094
         self.real_width = 1936
@@ -111,4 +115,5 @@ class TDMs_to_Video():
         videowriter.release()
 
 if __name__=="__main__":
-    converter = TDMs_to_Video()
+    fld = 'D:\\Dropbox (UCL - SWC)\\Dropbox (UCL - SWC)\\Rotation_vte\\data\\3dPose_test'
+    converter = TDMs_to_Video(datafld=fld)
