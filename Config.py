@@ -35,9 +35,8 @@ Experiment_type specifies which kind of experiment we are analysing (e.g. maze o
 might behave differently depending on the type of experiment
 """
 # TODO add "new" to selector type
-selector_type = 'date'  # selects which session to an 'new', 'experiment', 'session', 'date' or COHORT to
-selector = ['180603', '180604', '180605', '180606', '180607', '180625', '180626', '180628',
-            '180801', '180823', '180907', '180909', '180928', '180929',  '181012', '181013', '181014']
+selector_type = 'cohort'  # selects which session to an 'new', 'experiment', 'session', 'date' or COHORT to
+selector = ['180928', '180929',  '181012', '181013', '181014']
 exp_type = 'maze'
 
 #  ['180603', '180604', '180605', '180606', '180607', '180625', '180626', '180628',

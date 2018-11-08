@@ -64,7 +64,7 @@ class MazeCohortProcessor:
 
         if ml: EscapePrediction(self.triald_df)
 
-        # self.for_labmeeting()
+        self.for_labmeeting()
         #
         # save_all_open_figs(target_fld=fig_save_fld, name=name, format='svg')
         # plt.show()
@@ -422,6 +422,54 @@ class MazeCohortProcessor:
             contingency_tables[exp] = cont_table
             contingency_tables_nomargins[exp] = nm_cont_table
             print('\n', 'Norm. contingency table for {}\n\n'.format(exp), cont_table)
+
+
+        # Plot p(R) as function of Vel at leaving th platform
+
+        vels = ([], [])
+        accs = ([], [])
+        for trn in range(len(ff_r)):
+            d = ff_r.iloc[trn]
+            rois = d.tracking.processing['Trial outcome']['trial_rois_trajectory'][1800:]
+            leaves_threat = d.tracking.processing['Trial outcome']['last_at_threat']-1800
+
+            if 'right' in d.tracking.processing['Trial outcome']['threat_escape_arm'].lower():
+                esc = 1
+            else:
+                esc = 0
+
+            v_leaves_threat = d.tracking.dlc_tracking['Posture']['body'].iloc[300+leaves_threat].Velocity
+            v_leaves_threat /= d.tracking.processing['status at stimulus'][1]['Body length']
+            a_leaves_threat = d.tracking.dlc_tracking['Posture']['body'].iloc[300+leaves_threat].Accelearation
+            a_leaves_threat /= d.tracking.processing['status at stimulus'][1]['Body length']
+
+            if rois[0] != 'Threat_platform': continue
+
+            vels[esc].append(v_leaves_threat)
+            accs[esc].append(a_leaves_threat)
+
+        f, ax = create_figure(nrows=2)
+
+        x0 = np.linspace(-0.2, 0.2, len(vels[0])+len(vels[1]))
+        ax[0].scatter(x0, vels[0]+vels[1], label='all')
+        ax[0].axhline(np.median(vels[0]+vels[1]))
+        ax[1].scatter(x0, accs[0]+accs[1])
+
+        x1 = np.linspace(0.8, 1.2, len(vels[0]))
+        ax[0].scatter(x1, vels[0], label='l')
+        ax[0].axhline(np.median(vels[0]))
+        ax[1].scatter(x1, accs[0])
+
+        x2 = np.linspace(1.8, 2.2, len(vels[1]))
+        ax[0].scatter(x2, vels[1], label='r')
+        ax[0].axhline(np.median(vels[1]))
+        ax[1].scatter(x2, accs[1])
+
+        for a in ax:
+            a.set(facecolor=[.2, .2, .2])
+        ax[0].set(ylim=[0,.5])
+        ax[1].set(ylim=[-1,1])
+        make_legend(ax[0])
 
         # Plot p(R) given arm of origin
         f, axarr = create_figure(ncols=len(experiments))

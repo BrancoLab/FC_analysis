@@ -14,6 +14,8 @@ from sklearn.linear_model import SGDClassifier, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier as DecTreC
+from sklearn.tree import export_graphviz
 import suftware as sw
 
 import sys
@@ -23,14 +25,37 @@ class EscapePrediction:
     def __init__(self, data, suft=True, explore=True):
         self.select_subset = True
         self.select_by_tag = 'experiment'
-        self.select_by_values = ['Square Maze', 'TwoAndahalf Maze']
+        self.select_by_values = ['TwoArms maze', 'FlipFlop Maze']
 
-        self.data = data
+        self.data = data   # .iloc[280:]
         self.data_handling = DataProcessing(self.data)
 
         self.define_params()
         self.prepare_data()
         self.create_trainingvstest_data()
+
+        # trying random tree classifier
+        refined_data = None
+        for rown in range(len(self.training_data)):
+            print(rown)
+            d = self.training_data.atstim.iloc[rown].status.drop('likelihood').drop('Head ang vel').drop('Head angle').drop('Head ang acc').drop('x').drop('y').drop('Body ang vel').drop('Accelearation').drop('Body length')
+            d = pd.DataFrame(d).transpose()
+            if refined_data is None:
+                refined_data = d
+            else:
+                refined_data = refined_data.append(d)
+
+        while np.any(refined_data.Orientation[refined_data.Orientation>360]):
+            refined_data[refined_data.Orientation>360] -= 360
+
+
+        refined_labels = pd.DataFrame(self.training_labels)
+
+        tree = DecTreC(max_depth=8, min_samples_leaf=5) # max_depth=1, min_samples_leaf=1, max_leaf_nodes=4, max_features=1
+        tree.fit(refined_data, refined_labels)
+
+        export_graphviz(tree, out_file='/Users/federicoclaudi/desktop/tree_depth.dot', feature_names=refined_data.columns,
+                        class_names=tuple(set(refined_labels.escape)), rounded=True, filled=True)
 
         if explore:
             self.explore_data(verbose=False, show_scatter_matrx=True)
@@ -79,8 +104,8 @@ class EscapePrediction:
         self.colors = ['r' if v else 'g' for v in self.training_labels.values]
 
         # Remove categoricals
-        self.training_data = self.data_handling.remove_categoricals(data=self.training_data,
-                                                                    categoricals=self.all_params['categoricals'])
+        # self.training_data = self.data_handling.remove_categoricals(data=self.training_data,
+        #                                                             categoricals=self.all_params['categoricals'])
 
     ##################   EXPLORE DATA
 
