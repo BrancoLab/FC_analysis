@@ -7,3 +7,5 @@
 *.xml
 *.xml
 *.tdms
+*.DS_Store
+
