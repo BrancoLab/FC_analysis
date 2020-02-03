@@ -15,7 +15,6 @@ def start_connection():
     """
     Starts up the datajoint database and signs in with user and passoword + returns the database name
     """
-    
 
     if dj.config['database.user'] != "root":
         try:

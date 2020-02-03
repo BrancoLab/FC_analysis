@@ -16,4 +16,4 @@ raw_analog_inputs_fld = os.path.join(main_data_fld, 'raw', 'analog_inputs')
 
 
 # --------------------------------- METADATA --------------------------------- #
-mice_log = os.path.join(main_dropbox_fld, 'Locomotion_mice.xls')
+mice_log = os.path.join(main_dropbox_fld, 'Locomotion_mice.xlsx')
