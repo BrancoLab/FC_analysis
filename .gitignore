@@ -1,11 +1,25 @@
 
-*.iml
-*.xml
-*.pyc
-*.pyc
-*.xml
-*.xml
-*.xml
+deeplabcut/pose_estimation_tensorflow/models/pretrained/resnet_v1_101.ckpt
+deeplabcut/pose_estimation_tensorflow/models/pretrained/resnet_v1_50.ckpt
+*.ckpt
+*.ckpt
+*.vscode
+*.mp4
+*.mp4
 *.tdms
-*.DS_Store
+*.jpg
+*.xml
+*.idea
+*.pyc
+.DS_Store
+Users/
+deeplabcut/pose_estimation_tensorflow/models/pretrained/resnet_v1_101.ckpt
+deeplabcut/pose_estimation_tensorflow/models/pretrained/resnet_v1_50.ckpt
 
+*/__pycache__
+__pycache__
+*.idea
+.idea
+*.ipynb_checkpoints
+*.ipynb_checkpoints/
+*tempCodeRunnerFile.py
