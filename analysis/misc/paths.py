@@ -14,6 +14,7 @@ raw_video_fld = os.path.join(main_data_fld, 'raw', 'video')
 raw_metadata_fld = os.path.join(main_data_fld, 'raw', 'metadata')
 raw_analog_inputs_fld = os.path.join(main_data_fld, 'raw', 'analog_inputs')
 raw_tosort_fld = os.path.join(main_data_fld, 'raw', 'tosort')
+raw_tracking_fld = os.path.join(main_data_fld, 'raw', 'tracking')
 
 # --------------------------------- METADATA --------------------------------- #
 mice_log = os.path.join(main_dropbox_fld, 'Locomotion_mice.xlsx')
@@ -26,5 +27,6 @@ __all__ = [
     'raw_video_fld',
     'raw_metadata_fld',
     'raw_analog_inputs_fld',
-    'raw_tosort_fld'
+    'raw_tosort_fld',
+    'raw_tracking_fld',
 ]
