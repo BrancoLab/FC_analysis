@@ -14,7 +14,7 @@ from fcutils.file_io.utils import listdir, get_subdirs
 from tdmstovideo.converter import convert as tdmsconvert
 
 from analysis.misc.paths import *
-from analysis.misc.paths import bash_scripts, hpc_raw_video_fld
+from analysis.misc.paths import bash_scripts, hpc_raw_video_fld, hpc_raw_metadata_fld
 
 # ---------------------------------------------------------------------------- #
 #                          DATABASE POPULATION HELPERS                         #
@@ -52,7 +52,7 @@ def get_not_converted_videos(convert_videos, fps=None):
             newbash = newbash.replace("err.err", "output/{}.err".format(name))
 
             newbash = newbash.replace("VIDEO", os.path.join(hpc_raw_video_fld, os.path.split(video)[-1]).replace("\\", "/"))
-            newbash = newbash.replace("METADATA", os.path.join(hpc_raw_video_fld, os.path.split(metadata)[-1]).replace("\\", "/"))
+            newbash = newbash.replace("METADATA", os.path.join(hpc_raw_metadata_fld, os.path.split(metadata)[-1]).replace("\\", "/"))
             newbash = newbash.replace("FPS",  str(fps))
             
             # Write output

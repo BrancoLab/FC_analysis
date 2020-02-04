@@ -13,7 +13,7 @@ FPS = 60
 #                                    PRELIMS                                   #
 # ---------------------------------------------------------------------------- #
 if run_prelims:
-    # sort_mantis_files()
+    sort_mantis_files()
     to_convert = get_not_converted_videos(CONVERT_VIDEOS, fps=FPS)
 
 
