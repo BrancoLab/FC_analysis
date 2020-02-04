@@ -17,3 +17,14 @@ raw_tosort_fld = os.path.join(main_data_fld, 'raw', 'tosort')
 
 # --------------------------------- METADATA --------------------------------- #
 mice_log = os.path.join(main_dropbox_fld, 'Locomotion_mice.xlsx')
+sessions_log = os.path.join(main_dropbox_fld, 'Locomotion_datalog.xlsx')
+
+
+__all__ = [
+    'sessions_log',
+    'mice_log',
+    'raw_video_fld',
+    'raw_metadata_fld',
+    'raw_analog_inputs_fld',
+    'raw_tosort_fld'
+]
