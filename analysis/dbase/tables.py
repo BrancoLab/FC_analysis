@@ -1,7 +1,9 @@
 import datajoint as dj
 import pandas as pd
+import datetime
 
 from fcutils.file_io.io import load_excel_file, load_yaml
+from fcutils.file_io.utils import listdir
 
 from analysis.misc.paths import *
 from analysis.dbase.dj_config import start_connection, dbname
@@ -12,11 +14,13 @@ schema = start_connection()
 def manual_insert_skip_duplicate(table, key):
     try:
         table.insert1(key)
+        return True
     except Exception as e:
         if isinstance(e, dj.errors.DuplicateError):
-            pass # Just a duplicate warning
+            return False # Just a duplicate warning
         else:
             raise ValueError(e)
+
 # ---------------------------------------------------------------------------- #
 #                                     MOUSE                                    #
 # ---------------------------------------------------------------------------- #
@@ -98,6 +102,15 @@ class Session(dj.Manual):
     date: date
     """
 
+    class Metadata(dj.Part):
+        definition = """
+            -> Session
+            ---
+            naive: int
+            lights: int
+            shelter: int
+        """
+
     def pop(self):
         session_data = load_excel_file(sessions_log)
         for session in session_data:
@@ -108,4 +121,71 @@ class Session(dj.Manual):
                 subname=session['Subexperiment'],
                 date=session['Date'].strftime("%Y-%m-%d"),                
             )
-            manual_insert_skip_duplicate(self, key)
+
+            # Check if an entry for this session exists already
+            intable = (self & f"mouse_id='{key['mouse_id']}'" & f"date='{key['date']}'").fetch(as_dict=True)
+            if not intable:
+                manual_insert_skip_duplicate(self, key)
+
+    def pop_metadata(self):
+        # Populate subtable 
+        session_data = load_excel_file(sessions_log)
+        clean_session_data = [s for s in session_data if s['Mouse']]
+
+        for key in self.fetch(as_dict=True):
+            datalog_entry = [s for s in clean_session_data \
+                                if s['Date'].strftime("%Y-%m-%d")==key['date'].strftime("%Y-%m-%d") \
+                                and s['Mouse']==key['mouse_id']][0]
+
+            key['naive'] = datalog_entry['naive']
+            key['lights'] = datalog_entry['lights']
+            key['shelter'] = datalog_entry['shelter']
+            manual_insert_skip_duplicate(self.Metadata, key)
+
+
+    # ----------------------------------- UTILS ---------------------------------- #
+
+    def get_files_for_session(self, session_id=None, mouse_id=None, date=None):
+        # Get session given args and check all went okay
+        if session_id is not None:
+            session = (self & f"session_id={session_id}").fetch(as_dict=True)
+        elif mouse_id is not None and date is not None:
+            session = (self & f"mouse_id='{mouse_id}'" & f"date='{date}'").fetch(as_dict=True)
+        else:
+            raise ValueError("Need to pass either session id or mouse id + date")
+
+        if not session:
+            print("Couldn't find any session with args: {} - {} - {}".format(session_id, mouse_id, date))
+            return None
+        elif len(session) > 1:
+            raise ValueError("Found too many sessions")
+        else:
+            session = session[0]
+        
+        # Create name
+        sessname = session['date'].strftime("%y%m%d")+f"_{session['mouse_id']}"
+
+        # Get files
+        video_tdms = [f for f in listdir(raw_video_fld) if sessname in f and f.endswith(".tdms")][0]
+        metadata_tmds = [f for f in listdir(raw_metadata_fld) if sessname in f and f.endswith(".tdms")][0]
+        inputs_tmds = [f for f in listdir(raw_analog_inputs_fld) if sessname in f and f.endswith(".tdms")][0]
+
+        try:
+            converted_vid = [f for f in listdir(raw_video_fld) if sessname in f and f.endswith(".mp4")][0]
+        except:
+            converted_vid = None
+
+        try:
+            tracking = [f for f in listdir(raw_tracking_fld) if sessname in f and f.endswith(".h5")][0]
+        except:
+            tracking = None
+
+        files = dict(
+            raw_video = video_tdms, 
+            raw_metadata = metadata_tmds,
+            raw_inputs = inputs_tmds,
+            converted_video = converted_vid,
+            trackingdata_file = tracking,
+        )
+        return files
+

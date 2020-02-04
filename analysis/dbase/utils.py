@@ -4,6 +4,9 @@ from fancylog import fancylog
 import fancylog as package
 from tqdm import tqdm
 
+import sys
+logging.disable(sys.maxsize)
+
 from shutil import copyfile
 
 from behaviour.tdms.mantis_videoframes_test import check_mantis_dropped_frames
@@ -11,8 +14,11 @@ from fcutils.file_io.utils import listdir, get_subdirs
 from tdmstovideo.converter import convert as tdmsconvert
 
 from analysis.misc.paths import *
+from analysis.misc.paths import bash_scripts, hpc_raw_video_fld
 
-
+# ---------------------------------------------------------------------------- #
+#                          DATABASE POPULATION HELPERS                         #
+# ---------------------------------------------------------------------------- #
 
 def get_not_converted_videos(convert_videos, fps=None):
     raw_vids = [f for f in listdir(raw_video_fld) if f.endswith(".tdms")]
@@ -23,24 +29,48 @@ def get_not_converted_videos(convert_videos, fps=None):
         if raw.split(".")[0] not in converted:
             to_convert.append(raw)
 
+    print("\n\nFound {} videos to convert: ".format(len(to_convert))) 
+    for vid in to_convert:
+        print("     ", vid)     
+
+    
     if convert_videos:
         for video in raw_vids:
             # Get metadata file
             vid = os.path.split(video)[-1].split(".")[0]
             metadata = [f for f in listdir(raw_metadata_fld) if vid in f][0]
             tdmsconvert(video, metadata, fps=fps)
+    else:
+        for video in raw_vids:
+            name = os.path.split(video)[-1].split(".")[0]
+            metadata = [f for f in listdir(raw_metadata_fld) if name in f][0]
 
-    print("\n\nFound {} videos to convert: ".format(len(to_convert))) 
-    for vid in to_convert:
-        print("     ", vid)     
-        
-          
+            # Create sbatch scripts to run the conversion on HPC
+            template = open(os.path.join(bash_scripts, "run_on_hpc_template.txt"), "r").read()
+
+            newbash = template.replace("out.out", "output/{}.out".format(name))
+            newbash = newbash.replace("err.err", "output/{}.err".format(name))
+
+            newbash = newbash.replace("VIDEO", os.path.join(hpc_raw_video_fld, os.path.split(video)[-1]).replace("\\", "/"))
+            newbash = newbash.replace("METADATA", os.path.join(hpc_raw_video_fld, os.path.split(metadata)[-1]).replace("\\", "/"))
+            newbash = newbash.replace("FPS",  str(fps))
+            
+            # Write output
+            script_name = os.path.join(bash_scripts, "individuals", name+".sh")
+            f = open(script_name,"w")
+            f.write(newbash)
+            f.close() 
+            print("Created bash script at: " + script_name)
 
 def sort_mantis_files():
+    exp_dirs = get_subdirs(raw_tosort_fld)
+    if not exp_dirs:
+        return
+
     # Start logging
+    logging.disable(logging.NOTSET)
     fancylog.start_logging(raw_tosort_fld, package, verbose=True, filename='mantis_sorter')
     logging.info("Starting to process mantis files")
-    exp_dirs = get_subdirs(raw_tosort_fld)
 
     # Loop over subdirs
     for subdir in exp_dirs:
@@ -107,5 +137,7 @@ def sort_mantis_files():
             os.rename(src, dest)
 
 
+    # disable logging
+    logging.disable(sys.maxsize)
 
 
