@@ -7,10 +7,8 @@ from tqdm import tqdm
 import sys
 logging.disable(sys.maxsize)
 
-from shutil import copyfile
-
 from behaviour.tdms.mantis_videoframes_test import check_mantis_dropped_frames
-from fcutils.file_io.utils import listdir, get_subdirs
+from fcutils.file_io.utils import listdir, get_subdirs, get_file_name
 from tdmstovideo.converter import convert as tdmsconvert
 
 from analysis.misc.paths import *
@@ -37,12 +35,12 @@ def get_not_converted_videos(convert_videos, fps=None):
     if convert_videos:
         for video in raw_vids:
             # Get metadata file
-            vid = os.path.split(video)[-1].split(".")[0]
+            vid = get_file_name(video)
             metadata = [f for f in listdir(raw_metadata_fld) if vid in f][0]
             tdmsconvert(video, metadata, fps=fps)
     else:
         for video in raw_vids:
-            name = os.path.split(video)[-1].split(".")[0]
+            name = get_file_name(video)
             metadata = [f for f in listdir(raw_metadata_fld) if name in f][0]
 
             # Create sbatch scripts to run the conversion on HPC
@@ -61,6 +59,8 @@ def get_not_converted_videos(convert_videos, fps=None):
             f.write(newbash)
             f.close() 
             print("Created bash script at: " + script_name)
+
+
 
 def sort_mantis_files():
     exp_dirs = get_subdirs(raw_tosort_fld)

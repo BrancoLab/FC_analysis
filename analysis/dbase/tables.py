@@ -2,6 +2,7 @@ import datajoint as dj
 import pandas as pd
 import datetime
 
+from behaviour.tracking.tracking import compute_body_segments
 from fcutils.file_io.io import load_excel_file, load_yaml
 from fcutils.file_io.utils import listdir
 
@@ -188,4 +189,70 @@ class Session(dj.Manual):
             trackingdata_file = tracking,
         )
         return files
+
+
+# ---------------------------------------------------------------------------- #
+#                                   TRACKING                                   #
+# ---------------------------------------------------------------------------- #
+@schema
+class Tracking(dj.Imported):
+    definition = """
+        -> Session
+    """
+
+    bparts = ['snout', 'left_ear', 'right_ear', 'neck', 'body', 'tail']
+    bsegments = [('snout', 'left_ear'), ('snout', 'right_ear'),
+                ('left_ear', 'neck'), ('right_ear', 'neck'),
+                ('neck', 'body'), ('body', 'tail')]
+
+    class BodyPartTracking(dj.Part):
+        definition = """
+            -> Tracking
+            bp: varchar(64)
+            ---
+            x: longblob
+            y: longblob
+            speed: longblob
+            dir_of_mvmt: longblob
+            angular_velocity: longblob
+        """
+
+    class BodySegmentTracking(dj.Part):
+        definition = """
+            -> Tracking
+            bp1: varchar(64)
+            bp2: varchar(64)
+            ---
+            orientation: longblob
+            angular_velocity: longblob
+        """
+
+    # Populate method
+    def _make_tuples(self, key):
+        # Insert entry into main class
+        self.insert1(key)
+
+        # Insert into the bodyparts tracking
+        for bp in self.bparts:
+            bp_key = key.copy()
+            bp_key['bp'] = bp
+            
+            # TODO load the relevant tracking data
+
+            # TODO organize the tracking into a new key
+
+            self.BodyPartTracking.isert1(bp_key)
+
+        # Insert into the body segment data
+        for (bp1, bp2) in self.bsegments:
+            segment_key = key.copy()
+            segment_key['bp1'] = bp1
+            segment_key['bp2'] = bp2
+
+            # TODO get relevant data with:
+            # compute_body_segments # <- need to finish writing this
+
+            # TODO turn it into a key
+
+            self.BodySegmentTracking.insert1(segment_key)
 

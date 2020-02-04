@@ -16,6 +16,9 @@ raw_analog_inputs_fld = os.path.join(main_data_fld, 'raw', 'analog_inputs')
 raw_tosort_fld = os.path.join(main_data_fld, 'raw', 'tosort')
 raw_tracking_fld = os.path.join(main_data_fld, 'raw', 'tracking')
 
+# -------------------------------- DEEPLABCUT -------------------------------- #
+dlc_config_file = ""
+
 # --------------------------------- METADATA --------------------------------- #
 mice_log = os.path.join(main_dropbox_fld, 'Locomotion_mice.xlsx')
 sessions_log = os.path.join(main_dropbox_fld, 'Locomotion_datalog.xlsx')
@@ -23,6 +26,7 @@ sessions_log = os.path.join(main_dropbox_fld, 'Locomotion_datalog.xlsx')
 
 # ----------------------------------- MISC ----------------------------------- #
 bash_scripts = os.path.join(main_data_fld, 'bash_scripts')
+
 hpc_loco_fld = "/nfs/winstor/branco/Federico/Locomotion"
 hpc_raw_video_fld = os.path.join(hpc_loco_fld, 'raw', 'video').replace("\\", "/")
 hpc_raw_metadata_fld = os.path.join(hpc_loco_fld, 'raw', 'metadata').replace("\\", "/")
