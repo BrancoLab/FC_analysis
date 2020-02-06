@@ -1,6 +1,9 @@
-import deeplabcut as dlc
+try:
+    import deeplabcut as dlc
+except ModuleNotFoundError:
+    print("Could not import deeplabcut")
 
-from behaviour.tracking.tracking import prepare_tracking_data
+# from behaviour.tracking.tracking import prepare_tracking_data
 
 from analysis.misc.paths import dlc_config_file, raw_tracking_fld
 from analysis.dbase.tracking.utils import get_not_tracked_files
