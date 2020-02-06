@@ -3,6 +3,9 @@ try:
 except ModuleNotFoundError:
     print("Could not import deeplabcut")
 
+import sys
+sys.path.append("./")
+
 # from behaviour.tracking.tracking import prepare_tracking_data
 
 from analysis.misc.paths import dlc_config_file, raw_tracking_fld
@@ -10,7 +13,7 @@ from analysis.dbase.tracking.utils import get_not_tracked_files
 
 
 TRACK_VIDEOS = True
-EXPAND_TRACKINGS = True
+EXPAND_TRACKINGS = False
 
 # ---------------------------------------------------------------------------- #
 #                  TRACK VIDEOS THAT HAVEN'T BEEN TRACKED YET                  #
@@ -18,15 +21,15 @@ EXPAND_TRACKINGS = True
 def track_videos():
     to_track = get_not_tracked_files()
 
-    # Track
-    dlc.analyze_videos(dlc_config_file, to_track, destfolder=raw_tracking_fld,
-                    videotype='.mp4', save_as_csv=False,
-                    dynamic=(True, 0.5, 100))
+    # # Track
+    # dlc.analyze_videos(dlc_config_file, to_track, destfolder=raw_tracking_fld,
+    #                 videotype='.mp4', save_as_csv=False,
+    #                 dynamic=(True, 0.5, 100))
 
-    # Median filter 
-    deeplabcut.filterpredictions(dlc_config_file, to_track, 
-        videotype='mp4', filtertype='median',
-        save_as_csv=False, destfolder=raw_tracking_fld)
+    # # Median filter 
+    # deeplabcut.filterpredictions(dlc_config_file, to_track, 
+    #     videotype='mp4', filtertype='median',
+    #     save_as_csv=False, destfolder=raw_tracking_fld)
 
     # Rename files to smth sensible
     # TODO: Rename files to smth sensible
