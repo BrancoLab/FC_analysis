@@ -1,4 +1,0 @@
-CircArena:
-    arena: cylinder
-    subexps:
-            - baseline

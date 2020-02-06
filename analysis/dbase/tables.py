@@ -7,6 +7,8 @@ from fcutils.file_io.io import load_excel_file, load_yaml
 from fcutils.file_io.utils import listdir
 
 from analysis.misc.paths import *
+from analysis.misc.paths import experiments_file, surgeries_file
+
 from analysis.dbase.dj_config import start_connection, dbname
 
 schema = start_connection()
@@ -20,7 +22,7 @@ def manual_insert_skip_duplicate(table, key):
 		if isinstance(e, dj.errors.DuplicateError):
 			return False # Just a duplicate warning
 		elif isinstance(e, dj.errors.IntegrityError):
-			raise ValueError("Could not insert in table, likely missing a reference to foreign key in parent table!\n{}".format(table.describe()))
+			raise ValueError("Could not insert in table, likely missing a reference to foreign key in parent table!\n{}\n{}".format(table.describe(), e))
 		else:
 			raise ValueError(e)
 
@@ -37,9 +39,16 @@ class Mouse(dj.Manual):
 		sex: enum('M', 'F', 'U')                      # sex of mouse - Male, Female, or Unknown/Unclassified
 	"""
 
-	def pop(self):  
-		mice_data = load_excel_file(mice_log)
+	class Injection(dj.Part):
+		definition = """
+			-> Mouse
+			target: varchar(64)
+			compound: varchar(64)
+		"""
 
+	def pop(self):  
+		# Populate the main table
+		mice_data = load_excel_file(mice_log)
 		in_table = list(self.fetch("mouse_id"))
 		for mouse in mice_data:
 			if mouse['ID'] in in_table:
@@ -48,6 +57,21 @@ class Mouse(dj.Manual):
 			key = dict(mouse_id = mouse['ID'].upper(), strain=mouse['MouseLine'].upper(),
 						sex=mouse['Gender'].upper())
 			self.insert1(key)
+
+		# Populate the surgeries tables
+		surgery_data = load_yaml(surgeries_file)
+		in_table = list(self.fetch("mouse_id"))
+
+		for mouse in surgery_data.keys():
+			if mouse not in in_table: continue
+			surgery = surgery_data[mouse]
+
+			for inj in [k for k in list(surgery.keys()) if 'injection' in k]:
+				part_key = dict(mouse_id = mouse,
+								target = surgery[inj]['target'],
+								compound = surgery[inj]['compound'])
+				
+				manual_insert_skip_duplicate(self.Injection, part_key)
 
 
 # ---------------------------------------------------------------------------- #
@@ -61,7 +85,7 @@ class Experiment(dj.Manual):
 		arena: varchar(64)
 	"""
 	def pop(self):
-		exps = load_yaml("analysis\dbase\populate\experiments.yml")
+		exps = load_yaml(experiments_file)
 		for exp in exps.keys():
 			key = dict(exp_name=exp, arena=exps[exp]['arena'])
 			manual_insert_skip_duplicate(self, key)
@@ -76,10 +100,10 @@ class Subexp(dj.Manual):
 	exp_table = Experiment()
 
 	def pop(self):
-		exps = load_yaml("analysis\dbase\populate\experiments.yml")
+		exps = load_yaml(experiments_file)
 		for exp in exps.keys():
 			for subexp in exps[exp]['subexps']:
-				key=dict(exp_name=exp, subname=subexp)
+				key=dict(exp_name=exp, subname=list(subexp.keys())[0])
 				manual_insert_skip_duplicate(self, key)
 
 	def show(self):
