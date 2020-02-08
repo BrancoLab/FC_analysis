@@ -26,7 +26,8 @@ dlc_config_file = os.path.join(main_dropbox_fld, 'dlc', 'locomotion', 'config.ym
 # --------------------------------- METADATA --------------------------------- #
 mice_log = os.path.join(main_dropbox_fld, 'Locomotion_mice.xlsx')
 sessions_log = os.path.join(main_dropbox_fld, 'Locomotion_datalog.xlsx')
-
+experiments_file = os.path.join(main_dropbox_fld, 'experiments.yml')
+surgeries_file = os.path.join(main_dropbox_fld, 'surgeries.yml')
 
 # ----------------------------------- MISC ----------------------------------- #
 bash_scripts = os.path.join(main_data_fld, 'bash_scripts')

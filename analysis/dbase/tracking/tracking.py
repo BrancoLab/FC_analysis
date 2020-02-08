@@ -1,4 +1,10 @@
-import deeplabcut as dlc
+import sys
+sys.path.append("./")
+
+try:
+    import deeplabcut as dlc
+except ModuleNotFoundError:
+    print("Could not import deeplabcut")
 
 from fcutils.file_io.utils import listdir
 from behaviour.tracking.tracking import prepare_tracking_data
@@ -8,7 +14,7 @@ from analysis.dbase.tracking.utils import get_not_tracked_files
 
 
 TRACK_VIDEOS = True
-EXPAND_TRACKINGS = True
+EXPAND_TRACKINGS = False
 
 # ---------------------------------------------------------------------------- #
 #                  TRACK VIDEOS THAT HAVEN'T BEEN TRACKED YET                  #
@@ -22,10 +28,10 @@ def track_videos():
                     videotype='.mp4', save_as_csv=False,
                     dynamic=(True, 0.5, 100))
 
-    # Median filter 
-    deeplabcut.filterpredictions(dlc_config_file, to_track, 
-        videotype='mp4', filtertype='median',
-        save_as_csv=False, destfolder=raw_tracking_fld)
+    # # Median filter 
+    # deeplabcut.filterpredictions(dlc_config_file, to_track, 
+    #     videotype='mp4', filtertype='median',
+    #     save_as_csv=False, destfolder=raw_tracking_fld)
 
     # Rename files to smth sensible
     # Find file names after filtering. 

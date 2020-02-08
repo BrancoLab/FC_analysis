@@ -39,7 +39,7 @@ def get_not_converted_videos(convert_videos, fps=None):
             metadata = [f for f in listdir(raw_metadata_fld) if vid in f][0]
             tdmsconvert(video, metadata, fps=fps)
     else:
-        for video in raw_vids:
+        for video in to_convert:
             name = get_file_name(video)
             metadata = [f for f in listdir(raw_metadata_fld) if name in f][0]
 
@@ -64,6 +64,7 @@ def get_not_converted_videos(convert_videos, fps=None):
 
 def sort_mantis_files():
     exp_dirs = get_subdirs(raw_tosort_fld)
+
     if not exp_dirs:
         return
 

@@ -13,6 +13,7 @@ TRACK_VIDEOS=False
 
 FPS = 60
 
+
 # ---------------------------------------------------------------------------- #
 #                                    PRELIMS                                   #
 # ---------------------------------------------------------------------------- #
@@ -24,6 +25,8 @@ if run_prelims:
     if TRACK_VIDEOS:
         track_videos()
         expand_tracking_data()
+
+    print("\n\n\n")
 
 
 # ---------------------------------------------------------------------------- #
@@ -38,10 +41,9 @@ Subexp().pop()
 
 # ?  Session
 Session().pop()
-Session().pop_metadata()
 
 # ? Tracking
-Tracking.populate()
+# Tracking.populate()
 
 
 # ---------------------------------------------------------------------------- #
@@ -59,7 +61,12 @@ Subexp().show()
 print("\n\n --- SESSION ---\n")
 print(Session())
 print("\n\n")
+print("Session metadata")
 print((Session * Session.Metadata))
+print("\n\n")
+print("Session IP injection data")
+print((Session * Session.IPinjection))
+
 
 print("\n\n --- TRACKING ---\n")
 print((Tracking * Tracking.BodyPartTracking & "bp='body'"))

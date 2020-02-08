@@ -1,6 +1,7 @@
 try:
     import datajoint as dj
-except:
+except Exception as e:
+    print("Could not import datajoint: {}".format(e))
     pass
 
 import sys
