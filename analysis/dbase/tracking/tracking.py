@@ -1,8 +1,9 @@
 import deeplabcut as dlc
 
+from fcutils.file_io.utils import listdir
 from behaviour.tracking.tracking import prepare_tracking_data
 
-from analysis.misc.paths import dlc_config_file, raw_tracking_fld
+from analysis.misc.paths import dlc_config_file, raw_tracking_fld, processed_tracking_fld
 from analysis.dbase.tracking.utils import get_not_tracked_files
 
 
@@ -16,7 +17,8 @@ def track_videos():
     to_track = get_not_tracked_files()
 
     # Track
-    dlc.analyze_videos(dlc_config_file, to_track, destfolder=raw_tracking_fld,
+    dlc.analyze_videos(dlc_config_file, to_track, 
+                    destfolder=raw_tracking_fld,
                     videotype='.mp4', save_as_csv=False,
                     dynamic=(True, 0.5, 100))
 
@@ -26,6 +28,9 @@ def track_videos():
         save_as_csv=False, destfolder=raw_tracking_fld)
 
     # Rename files to smth sensible
+    # Find file names after filtering. 
+
+    # Move files to processed folder
     # TODO: Rename files to smth sensible
 
 
@@ -34,13 +39,14 @@ def track_videos():
 #                          CLEAN/EXPAND TRACKING DATA                          #
 # ---------------------------------------------------------------------------- #
 def expand_tracking_data():
-    # TODO get tracked video that haven't been expanded yet
+    to_process = [f for f in list_dir(processed_tracking_fld) if '_processed' not in f]
 
     # Clean them up!
-    for tracking in to_expand:
+    for tracking_file in to_process:
+        tracking = pd.read_hdf(tracking_file, key='hdf')
         tracking = prepare_tracking_data(tracking, likelihood_th=0.999, compute=True)
 
-        # TODO save the clened tracking to smth meaningful
+        tracking.to_hdf(tracking_file, key='hdf')
 
 
 if __name__ == "__main__":
