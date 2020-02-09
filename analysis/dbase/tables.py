@@ -9,7 +9,7 @@ from fcutils.file_io.utils import listdir
 from analysis.misc.paths import *
 from analysis.misc.paths import experiments_file, surgeries_file
 
-from analysis.dbase.dj_config import start_connection, dbname
+from analysis.dbase.utils.dj_config import start_connection, dbname
 
 schema = start_connection()
 
@@ -185,7 +185,7 @@ class Session(dj.Manual):
 
 
 	# ----------------------------------- UTILS ---------------------------------- #
-
+	
 	def get_files_for_session(self, session_id=None, mouse_id=None, date=None):
 		# Get session given args and check all went okay
 		if session_id is not None:

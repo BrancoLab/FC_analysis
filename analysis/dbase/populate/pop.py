@@ -3,7 +3,7 @@ import os
 sys.path.append(os.getcwd())
 
 from analysis.dbase.tables import *
-from analysis.dbase.utils import sort_mantis_files, get_not_converted_videos
+from analysis.dbase.utils.utils import sort_mantis_files, get_not_converted_videos
 from analysis.dbase.tracking.utils import get_not_tracked_files
 from analysis.dbase.tracking.tracking import track_videos, expand_tracking_data
 

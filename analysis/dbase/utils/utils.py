@@ -18,6 +18,7 @@ from analysis.misc.paths import bash_scripts, hpc_raw_video_fld, hpc_raw_metadat
 #                          DATABASE POPULATION HELPERS                         #
 # ---------------------------------------------------------------------------- #
 
+# ----------------------------- Videos to convert ---------------------------- #
 def get_not_converted_videos(convert_videos, fps=None):
     raw_vids = [f for f in listdir(raw_video_fld) if f.endswith(".tdms")]
     converted = [f.split(".")[0] for f in listdir(raw_video_fld) if f.endswith(".mp4")]
@@ -61,7 +62,7 @@ def get_not_converted_videos(convert_videos, fps=None):
             print("Created bash script at: " + script_name)
 
 
-
+# ----------------------------- Sort mantis files ---------------------------- #
 def sort_mantis_files():
     exp_dirs = get_subdirs(raw_tosort_fld)
 
