@@ -241,9 +241,10 @@ class Tracking(dj.Imported):
 	"""
 
 	bparts = ['snout', 'left_ear', 'right_ear', 'neck', 'body', 'tail']
-	bsegments = [('snout', 'left_ear'), ('snout', 'right_ear'),
-				('left_ear', 'neck'), ('right_ear', 'neck'),
-				('neck', 'body'), ('body', 'tail')]
+	bsegments = {'head':('snout', 'neck'), 
+				'upper_body':('neck', 'body'),
+				'lower_body':('body', 'tail')
+				'whole_body':('snout', 'tail')}
 
 	class BodyPartTracking(dj.Part):
 		definition = """
