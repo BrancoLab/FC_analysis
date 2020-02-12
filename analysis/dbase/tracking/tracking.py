@@ -6,11 +6,15 @@ try:
 except ModuleNotFoundError:
     print("Could not import deeplabcut")
 
-from fcutils.file_io.utils import listdir
-from behaviour.tracking.tracking import prepare_tracking_data
+from tqdm import tqdm
+
+from fcutils.file_io.utils import listdir, get_file_name
+from fcutils.file_io.io import save_json
+from behaviour.tracking.tracking import prepare_tracking_data, compute_body_segments
 
 from analysis.misc.paths import dlc_config_file, raw_tracking_fld, processed_tracking_fld
 from analysis.dbase.tracking.utils import get_not_tracked_files
+from analysis.dbase.tables import Tracking
 
 
 # ---------------------------------------------------------------------------- #
