@@ -11,6 +11,8 @@ run_prelims=True
 CONVERT_VIDEOS = False # Set as true to convert video locally, else make bash script for HPC
 TRACK_VIDEOS=False
 
+POPULATE = False
+
 FPS = 60
 
 
@@ -32,41 +34,42 @@ if run_prelims:
 # ---------------------------------------------------------------------------- #
 #                                   POPULATE                                   #
 # ---------------------------------------------------------------------------- #
-# ? Mouse
-Mouse().pop()
+if POPULATE:
+    # ? Mouse
+    Mouse().pop()
 
-# ? Experiment
-Experiment().pop()
-Subexp().pop()
+    # ? Experiment
+    Experiment().pop()
+    Subexp().pop()
 
-# ?  Session
-Session().pop()
+    # ?  Session
+    Session().pop()
 
-# ? Tracking
-# Tracking.populate()
-
-
-# ---------------------------------------------------------------------------- #
-#                               PRINT DBASE STATE                              #
-# ---------------------------------------------------------------------------- #
-print("\n\n --- MOUSE ---\n")
-print(Mouse())
-
-print("\n\n --- EXPERIMENT ---\n")
-print(Experiment())
-print("\n\n")
-Subexp().show()
+    # ? Tracking
+    # Tracking.populate()
 
 
-print("\n\n --- SESSION ---\n")
-print(Session())
-print("\n\n")
-print("Session metadata")
-print((Session * Session.Metadata))
-print("\n\n")
-print("Session IP injection data")
-print((Session * Session.IPinjection))
+    # ---------------------------------------------------------------------------- #
+    #                               PRINT DBASE STATE                              #
+    # ---------------------------------------------------------------------------- #
+    print("\n\n --- MOUSE ---\n")
+    print(Mouse())
+
+    print("\n\n --- EXPERIMENT ---\n")
+    print(Experiment())
+    print("\n\n")
+    Subexp().show()
 
 
-print("\n\n --- TRACKING ---\n")
-print((Tracking * Tracking.BodyPartTracking & "bp='body'"))
+    print("\n\n --- SESSION ---\n")
+    print(Session())
+    print("\n\n")
+    print("Session metadata")
+    print((Session * Session.Metadata))
+    print("\n\n")
+    print("Session IP injection data")
+    print((Session * Session.IPinjection))
+
+
+    print("\n\n --- TRACKING ---\n")
+    print((Tracking * Tracking.BodyPartTracking & "bp='body'"))

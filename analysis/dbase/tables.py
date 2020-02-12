@@ -272,6 +272,8 @@ class Tracking(dj.Imported):
 		# Insert entry into main class
 		self.insert1(key)
 
+		# TODO find file with raw tracking data and process
+
 		# Insert into the bodyparts tracking
 		for bp in self.bparts:
 			bp_key = key.copy()

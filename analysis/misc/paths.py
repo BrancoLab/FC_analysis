@@ -17,11 +17,10 @@ raw_tosort_fld = os.path.join(main_data_fld, 'raw', 'tosort')
 raw_tracking_fld = os.path.join(main_data_fld, 'raw', 'tracking')
 
 # ------------------------------ Processed Data ------------------------------ #
-processed_tracking_fld = os.path.join(main_data_fld, 'processed', 'tracking')
 processed_stimuli_fld = os.path.join(main_data_fld, 'processed', 'stimuli')
 
 # -------------------------------- DEEPLABCUT -------------------------------- #
-dlc_config_file = os.path.join(main_dropbox_fld, 'dlc', 'locomotion', 'config.yml')
+dlc_config_file = os.path.join(main_dropbox_fld, 'dlc', 'locomotion-Federico', 'config.yaml')
 
 # --------------------------------- METADATA --------------------------------- #
 mice_log = os.path.join(main_dropbox_fld, 'Locomotion_mice.xlsx')
