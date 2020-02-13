@@ -31,6 +31,7 @@ def get_parser():
         type=str,
         help="path to dest fld",
     )
+    return parser
 
 def main():
     args = get_parser().parse_args()

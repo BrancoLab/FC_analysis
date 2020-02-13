@@ -51,14 +51,6 @@ def track_videos(track=False):
             print("Created bash script at: " + script_name)
 
 
-    # Rename files to smth sensible
-    # Find file names after filtering. 
-
-    # Move files to processed folder
-    # TODO: Rename files to smth sensible
-
-
-
 if __name__ == "__main__":
     track_videos()
 
