@@ -1,0 +1,44 @@
+import deeplabcut as dlc
+
+import argparse
+
+
+def track(config_file, video, dest_fld):
+    dlc.analyze_videos(config_file, video, 
+                        destfolder=dest_fld,
+                        videotype='.mp4', save_as_csv=False,
+                        dynamic=False)
+
+    dlc.filterpredictions(config_file, video, filtertype='median')
+
+
+def get_parser():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        dest="config_file",
+        type=str,
+        help="path to config",
+    )
+    parser.add_argument(
+        dest="video",
+        type=str,
+        help="path video file",
+    )
+    parser.add_argument(
+        dest="dest_fld",
+        type=str,
+        help="path to dest fld",
+    )
+
+def main():
+    args = get_parser().parse_args()
+    track(
+        args.config_file,
+        args.video,
+        args.dest_fld,
+    )
+
+if __name__ == "__main__":
+    main()

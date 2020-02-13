@@ -19,8 +19,6 @@ raw_tracking_fld = os.path.join(main_data_fld, 'raw', 'tracking')
 processed_stimuli_fld = os.path.join(main_data_fld, 'processed', 'stimuli')
 
 
-# -------------------------------- DEEPLABCUT -------------------------------- #
-dlc_config_file = os.path.join(main_dropbox_fld, 'dlc', 'locomotion-Federico', 'config.yaml')
 
 
 # --------------------------------- METADATA --------------------------------- #
@@ -38,6 +36,10 @@ hpc_raw_metadata_fld = os.path.join(hpc_loco_fld, 'raw', 'metadata').replace("\\
 hpc_raw_analog_inputs_fld = os.path.join(hpc_loco_fld, 'raw', 'analog_inputs').replace("\\", "/")
 hpc_raw_tosort_fld = os.path.join(hpc_loco_fld, 'raw', 'tosort').replace("\\", "/")
 hpc_raw_tracking_fld = os.path.join(hpc_loco_fld, 'raw', 'tracking').replace("\\", "/")
+
+# -------------------------------- DEEPLABCUT -------------------------------- #
+dlc_config_file = os.path.join(main_dropbox_fld, 'dlc', 'locomotion-Federico', 'config.yaml')
+hpc_dlc_config_file = os.path.join(hpc_loco_fld, 'dlc', 'locomotion-Federico', 'config.yaml').replace("\\", "/")
 
 
 __all__ = [

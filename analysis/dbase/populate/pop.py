@@ -5,14 +5,14 @@ sys.path.append(os.getcwd())
 from analysis.dbase.tables import *
 from analysis.dbase.utils.utils import sort_mantis_files, get_not_converted_videos
 from analysis.dbase.tracking.utils import get_not_tracked_files
-from analysis.dbase.tracking.tracking import track_videos, expand_tracking_data
+from analysis.dbase.tracking.tracking import track_videos
 
 run_prelims=True
 CONVERT_VIDEOS = False # Set as true to convert video locally, else make bash script for HPC
 TRACK_VIDEOS=False
 
 POPULATE = False
-
+       
 FPS = 60
 
 
@@ -26,7 +26,8 @@ if run_prelims:
 
     if TRACK_VIDEOS:
         track_videos()
-        expand_tracking_data()
+    else:
+        get_not_tracked_files()
 
     print("\n\n\n")
 

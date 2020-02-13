@@ -243,7 +243,7 @@ class Tracking(dj.Imported):
 	bparts = ['snout', 'left_ear', 'right_ear', 'neck', 'body', 'tail']
 	bsegments = {'head':('snout', 'neck'), 
 				'upper_body':('neck', 'body'),
-				'lower_body':('body', 'tail')
+				'lower_body':('body', 'tail'),
 				'whole_body':('snout', 'tail')}
 
 	class BodyPartTracking(dj.Part):

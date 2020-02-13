@@ -1,6 +1,11 @@
 # FC_analysis
 Fede's analysis code, all things tracking, plotting and modelling
 
+Install with
+```
+pip install git+https://github.com/BrancoLab/FC_analysis --upgrade
+```
+
 
 Uses
 ``` 
