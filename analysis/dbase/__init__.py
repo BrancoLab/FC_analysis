@@ -1,3 +1,6 @@
 from analysis.dbase.utils.dj_config import start_connection, dbname
 
-schema = start_connection()
+try:
+    schema = start_connection()
+except Exception as e:
+    print("Could not load database: ", e)
