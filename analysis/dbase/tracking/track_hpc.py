@@ -4,7 +4,7 @@ import argparse
 
 
 def track(config_file, video, dest_fld):
-    analyze_videos(config_file, [video], 
+    analyze_videos(config_file, [video], gputouse=0,
                         destfolder=dest_fld,
                         videotype='.mp4', save_as_csv=False,
                         dynamic=(False,.5,10))
