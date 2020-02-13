@@ -19,8 +19,6 @@ raw_tracking_fld = os.path.join(main_data_fld, 'raw', 'tracking')
 processed_stimuli_fld = os.path.join(main_data_fld, 'processed', 'stimuli')
 
 
-
-
 # --------------------------------- METADATA --------------------------------- #
 mice_log = os.path.join(main_dropbox_fld, 'Locomotion_mice.xlsx')
 sessions_log = os.path.join(main_dropbox_fld, 'Locomotion_datalog.xlsx')

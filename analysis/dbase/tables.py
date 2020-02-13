@@ -2,7 +2,7 @@ import datajoint as dj
 import pandas as pd
 import datetime
 
-# from behaviour.tracking.tracking import compute_body_segments
+from behaviour.tracking.tracking import prepare_tracking_data, compute_body_segments
 from fcutils.file_io.io import load_excel_file, load_yaml
 from fcutils.file_io.utils import listdir
 
@@ -182,10 +182,14 @@ class Session(dj.Manual):
 
 			if datalog_entry['IP_injection']:
 				key['injected'] = datalog_entry['IP_injection'].upper()
+				manual_insert_skip_duplicate(self.IPinjection, key)
 
 
 	# ----------------------------------- UTILS ---------------------------------- #
-	
+	@staticmethod
+	def _get_formatted_date(date):
+		return date.strftime("%y%m%d")
+
 	def get_files_for_session(self, session_id=None, mouse_id=None, date=None):
 		# Get session given args and check all went okay
 		if session_id is not None:
@@ -204,7 +208,7 @@ class Session(dj.Manual):
 			session = session[0]
 		
 		# Create name
-		sessname = session['date'].strftime("%y%m%d")+f"_{session['mouse_id']}"
+		sessname = self._get_formatted_date(session['date'])+f"_{session['mouse_id']}"
 
 		# Get files
 		video_tdms = [f for f in listdir(raw_video_fld) if sessname in f and f.endswith(".tdms")][0]
@@ -239,7 +243,6 @@ class Tracking(dj.Imported):
 	definition = """
 		-> Session
 	"""
-
 	bparts = ['snout', 'left_ear', 'right_ear', 'neck', 'body', 'tail']
 	bsegments = {'head':('snout', 'neck'), 
 				'upper_body':('neck', 'body'),
@@ -270,32 +273,45 @@ class Tracking(dj.Imported):
 
 	# Populate method
 	def _make_tuples(self, key):
+		# Check if we have a tracking data file
+		tracking_fname = Session._get_formatted_date(key['date'])+f'_{key["mouse_id"]}_video'
+		tracking_file = [f for f in listdir(raw_tracking_fld) if tracking_fname in f]
+
+		if not tracking_file:
+			print(f"No tracking file for session {Session._get_formatted_date(key['date'])} - {key['mouse_id']}")
+			return
+		else:
+			tracking_file = tracking_file[0]
+
 		# Insert entry into main class
 		self.insert1(key)
 
-		# TODO find file with raw tracking data and process
+		# Load and clean tracking data
+		bp_tracking = prepare_tracking_data(tracking_file, median_filter=True,
+										fisheye=False, common_coord=False, compute=True)
+		bones_tracking = compute_body_segments(bp_tracking, self.bsegments)
 
 		# Insert into the bodyparts tracking
-		for bp in self.bparts:
+		for bp, tracking in bp_tracking.items():
 			bp_key = key.copy()
 			bp_key['bp'] = bp
 			
-			# TODO load the relevant tracking data
-
-			# TODO organize the tracking into a new key
+			key['x'] = tracking.x.values
+			key['y'] = tracking.y.values
+			key['speed'] = tracking.speed.values
+			key['dir_of_mvmt'] = tracking.direction_of_movement.values
+			key['angular_velocity'] = tracking.angular_velocity.values
 
 			self.BodyPartTracking.isert1(bp_key)
 
 		# Insert into the body segment data
-		for (bp1, bp2) in self.bsegments:
+		for bone, (bp1, bp2) in self.bsegments.items():
 			segment_key = key.copy()
 			segment_key['bp1'] = bp1
 			segment_key['bp2'] = bp2
 
-			# TODO get relevant data with:
-			# compute_body_segments # <- need to finish writing this
-
-			# TODO turn it into a key
+			key['orientation'] = bones_tracking[bone]['orientation']
+			key['angular_velocity'] = bones_tracking[bone]['angular_velocity']
 
 			self.BodySegmentTracking.insert1(segment_key)
 

@@ -13,7 +13,7 @@ from fcutils.file_io.utils import listdir, get_file_name
 from fcutils.file_io.io import save_json
 from behaviour.tracking.tracking import prepare_tracking_data, compute_body_segments
 
-from analysis.dbase.tracking.utils import get_not_tracked_files
+from analysis.dbase.utils.utils import get_not_tracked_files
 from analysis.dbase.tables import Tracking
 from analysis.misc.paths import bash_scripts, hpc_raw_tracking_fld, hpc_dlc_config_file, hpc_raw_video_fld
 from analysis.misc.paths import dlc_config_file, raw_tracking_fld
@@ -44,7 +44,7 @@ def track_videos(track=False):
             newbash = newbash.replace("VIDEO", os.path.join(hpc_raw_video_fld, os.path.split(video)[-1]).replace("\\", "/"))
             newbash = newbash.replace("DEST", hpc_raw_tracking_fld)
 
-            script_name = os.path.join(bash_scripts, "dlc_individuals", name+".sh")
+            script_name = os.path.join(bash_scripts, "dlc_individuals", name.split("_vid")[0]+".sh")
             f = open(script_name,"w")
             f.write(newbash)
             f.close() 
