@@ -11,6 +11,7 @@ CONVERT_VIDEOS = False # Set as true to convert video locally, else make bash sc
 TRACK_VIDEOS=False
 
 POPULATE = True
+SUMMARY = True
        
 FPS = 60
 
@@ -43,12 +44,13 @@ if POPULATE:
     Session().pop()
 
     # ? Tracking
-    Tracking.populate()
+    Tracking.populate(display_progress=True)
 
 
-    # ---------------------------------------------------------------------------- #
-    #                               PRINT DBASE STATE                              #
-    # ---------------------------------------------------------------------------- #
+# ---------------------------------------------------------------------------- #
+#                               PRINT DBASE STATE                              #
+# ---------------------------------------------------------------------------- #
+if SUMMARY:
     print("\n\n\n----------------------------------------------------------------------------")
     print("--- MOUSE ---\n")
     print(Mouse())
