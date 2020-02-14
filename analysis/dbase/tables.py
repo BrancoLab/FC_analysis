@@ -296,13 +296,13 @@ class Tracking(dj.Imported):
 			bp_key = key.copy()
 			bp_key['bp'] = bp
 			
-			key['x'] = tracking.x.values
-			key['y'] = tracking.y.values
-			key['speed'] = tracking.speed.values
-			key['dir_of_mvmt'] = tracking.direction_of_movement.values
-			key['angular_velocity'] = tracking.angular_velocity.values
+			bp_key['x'] = tracking.x.values
+			bp_key['y'] = tracking.y.values
+			bp_key['speed'] = tracking.speed.values
+			bp_key['dir_of_mvmt'] = tracking.direction_of_movement.values
+			bp_key['angular_velocity'] = tracking.angular_velocity.values
 
-			self.BodyPartTracking.isert1(bp_key)
+			self.BodyPartTracking.insert1(bp_key)
 
 		# Insert into the body segment data
 		for bone, (bp1, bp2) in self.bsegments.items():
@@ -310,8 +310,8 @@ class Tracking(dj.Imported):
 			segment_key['bp1'] = bp1
 			segment_key['bp2'] = bp2
 
-			key['orientation'] = bones_tracking[bone]['orientation']
-			key['angular_velocity'] = bones_tracking[bone]['angular_velocity']
+			segment_key['orientation'] = bones_tracking[bone]['orientation'].values
+			segment_key['angular_velocity'] = bones_tracking[bone]['angular_velocity'].values
 
 			self.BodySegmentTracking.insert1(segment_key)
 
