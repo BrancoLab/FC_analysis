@@ -11,8 +11,9 @@ from skimage.filters import threshold_otsu
 from collections import namedtuple
 
 from fcutils.plotting.utils import create_figure, clean_axes
-from fcutils.plotting.plot_elements import plot_shaded_withline
-from fcutils.plotting.colors import salmon, colorMap, goldenrod
+from fcutils.plotting.plot_elements import plot_shaded_withline, ball_and_errorbar
+from fcutils.plotting.colors import salmon, colorMap, goldenrod, desaturate_color
+from fcutils.plotting.plot_distributions import plot_kde
 from fcutils.maths.filtering import median_filter_1d
 from fcutils.maths.stats import percentile_range
 
@@ -44,7 +45,7 @@ get_tracking_speed = partial(get_tracking_speed, fps, keep_min)
 
 # Vars to exlude when mice are on the walls
 center = (480, 480)
-radius = 350
+radius = 400
 
 
 
@@ -52,12 +53,18 @@ radius = 350
 # ---------------------------------------------------------------------------- #
 #                                  FETCH DATA                                  #
 # ---------------------------------------------------------------------------- #
-def fetch_entries(entries, bone_entries, cmap):
+def fetch_entries(entries, bone_entries, cmap, neck_entries=None):
     dataset = namedtuple('dataset', 'tracking_data, tracking_data_in_center, tracking_data_not_in_center, \
         tracking_data_in_center_locomoting, tracking_data_not_in_center_locomoting, bouts, outbouts, mice, colors')
 
 
     tracking_data = pd.DataFrame(entries.fetch())
+
+    if neck_entries is not None:
+        neck_tracking = pd.DataFrame(neck_entries.fetch())
+        tracking_data['neck_x'] = neck_tracking.x.values
+        tracking_data['neck_y'] = neck_tracking.y.values
+
     bone_tracking_data = pd.DataFrame(bone_entries.fetch())
     tracking_data['body_orientation'] = bone_tracking_data['orientation']
     tracking_data['body_ang_vel'] = bone_tracking_data['angular_velocity']
@@ -82,6 +89,7 @@ def fetch_entries(entries, bone_entries, cmap):
 
 
 # ------------------------------ Fetch baseline ------------------------------ #
+print("Fetching baseline")
 baseline_entries = Session * Tracking.BodyPartTracking & f"exp_name='{experiment}'" \
                 & f"subname='{subexperiment}'" & f"bp='{bpart}'"
 bone_entries = Session * Tracking.BodySegmentTracking & f"exp_name='{experiment}'" \
@@ -89,15 +97,21 @@ bone_entries = Session * Tracking.BodySegmentTracking & f"exp_name='{experiment}
 baseline = fetch_entries(baseline_entries, bone_entries, 'Greens')
 
 # --------------------------------- Fetch CNO -------------------------------- #
+print("Fetching CNO")
 cno_entries = Session * Session.IPinjection * Tracking.BodyPartTracking \
                 & f"exp_name='{experiment}'" &  f"injected='CNO'"\
                 & f"subname='{cno_subexperiment}'" & f"bp='{bpart}'"
 bone_entries = Session * Session.IPinjection * Tracking.BodySegmentTracking \
                 & f"exp_name='{experiment}'" &  f"injected='CNO'"\
-                & f"subname='{cno_subexperiment}'" & f"bp1='neck'" & f"bp2='body'"     
-cno = fetch_entries(cno_entries, bone_entries, 'Reds')
+                & f"subname='{cno_subexperiment}'" & f"bp1='neck'" & f"bp2='body'"    
+cno_neck_entries = Session * Session.IPinjection * Tracking.BodyPartTracking \
+                & f"exp_name='{experiment}'" &  f"injected='CNO'"\
+                & f"subname='{cno_subexperiment}'" & f"bp='neck'" 
+cno = fetch_entries(cno_entries, bone_entries, 'Reds', neck_entries=cno_neck_entries)
+
 
 # --------------------------------- Fetch SAL -------------------------------- #
+print("Fetching SAL")
 sal_entries = Session * Session.IPinjection * Tracking.BodyPartTracking \
                 & f"exp_name='{experiment}'" &  f"injected='SAL'"\
                 & f"subname='{cno_subexperiment}'" & f"bp='{bpart}'"
@@ -109,16 +123,26 @@ sal = fetch_entries(sal_entries, bone_entries, 'Blues')
 print(f"Basline entries:\n{baseline_entries}\n\nCNO entries\n{cno_entries}\n\nSAL entries\n{sal_entries}")
 datasets = {'baseline':baseline, 'cno':cno, 'sal':sal}
 
+
+# %%
+outbouts = False
+
 # %%
 # -------------------------------- Plot bouts -------------------------------- #
 
-centered = False
+centered = True
 
 f, axarr = create_figure(subplots=True, ncols=3, figsize=(27, 9))
 
 for d_n, (dataset, data) in enumerate(datasets.items()):
     color = list(data.colors.values())[-1]
-    for i, bout in data.outbouts.iterrows():
+
+    if outbouts:
+        bouts = data.outbouts
+    else:
+        bouts = data.bouts
+
+    for i, bout in bouts.iterrows():
         if not centered:
             axarr[d_n].plot(bout.x, bout.y, color=color)
         else:
@@ -127,7 +151,7 @@ for d_n, (dataset, data) in enumerate(datasets.items()):
         circle = plt.Circle((0, 0), 75, color=[.9, .9, .9], zorder=99)
         axarr[d_n].add_artist(circle)
 
-    axarr[d_n].set(title=dataset+f'  {len(data.outbouts)} bouts', xticks=[], yticks=[])
+    axarr[d_n].set(title=dataset+f'  {len(bouts)} bouts', xticks=[], yticks=[])
 
 clean_axes(f)
 
@@ -135,8 +159,6 @@ clean_axes(f)
 
 # %%
 # -------------------------------- HISTOGRAMS -------------------------------- #
-
-
 f, axarr = plt.subplots(nrows=5, ncols=3, figsize=(24, 18))
 
 for d_n, (dataset, data) in enumerate(datasets.items()):
@@ -147,23 +169,42 @@ for d_n, (dataset, data) in enumerate(datasets.items()):
         axarr[0, d_n].hist(speed, color=color, histtype='stepfilled', lw=2, alpha=.4,
                            label=mouse, bins=40, density=True)
 
-        avel = np.abs(body_ang_vel)
-        avel[avel > 10] = np.nan
+        avel = ang_vel
+        avel[avel > 5] = np.nan
+        avel[avel < -5] = np.nan
+        avel[avel == 0] = np.nan
+
         axarr[1, d_n].hist(avel, color=color, histtype='stepfilled', lw=2, alpha=.4,
                     label=mouse, bins=40, density=True)
 
-    axarr[2, d_n].hist(data.outbouts.torosity, color=color, histtype='stepfilled', lw=2, alpha=.4, label=None, 
+    if outbouts:
+        bouts = data.outbouts
+    else:
+        bouts = data.bouts
+
+    # Remove outliers to make histogram easier to plot
+    bouts = bouts.loc[bouts.torosity < 2]
+
+    # bouts torosity
+    axarr[2, d_n].hist(bouts.torosity, color=color, histtype='stepfilled', lw=2, alpha=.4, label=None, 
                 bins=25, density=True)
 
-    axarr[3, d_n].hist(data.outbouts.distance, color=color, histtype='stepfilled', lw=2, alpha=.4, label=None, 
+    # bouts distance
+    axarr[3, d_n].hist(bouts.distance, color=color, histtype='stepfilled', lw=2, alpha=.4, label=None, 
                 bins=30, density=True)
 
-    axarr[4, d_n].hist([np.nansum(v) for v in data.outbouts.ang_vel.values], 
+
+    # bouts comulative angular displacement
+    axarr[4, d_n].hist([np.nansum(v) for v in bouts.ang_vel.values], 
                 color=color, histtype='stepfilled', lw=2, alpha=.4, label=None, 
                 bins=30, density=True)
+    axarr[4, d_n].axvline(0, color=desaturate_color(color, k=.7), ls='--', lw=3, zorder=99)
 
 # Style axes
-axarr[0, 0].set(title='BASELINE CONTROL')
+if outbouts:
+    axarr[0, 0].set(title='BASELINE CONTROL [outbouts]')
+else:
+    axarr[0, 0].set(title='BASELINE CONTROL [bouts]')
 axarr[0, 1].set(title='SC->GRN | CNO')
 axarr[0, 2].set(title='SC->GRN | SAL')
 
@@ -180,12 +221,13 @@ for ax in axarr[0, :]:
 
 # Ang vel
 for ax in axarr[1, :]:
-    ax.set(xlim=[0, 5], ylim=[0, 3])
+    ax.set(xlim=[-4, 4], ylim=[0, .6])
     ax.legend()
 
 # Torosity
 for ax in axarr[2, :]:
     ax.set(xlim=[1, 2], ylim=[0, 10])
+    # ax.set_xscale('log')
 
 # Distance
 for ax in axarr[3, :]:
@@ -199,14 +241,13 @@ clean_axes(f)
 
 
 
+
 # %%
 # ------------------------------- PLOT MEDIANS ------------------------------- #
-
 f, axarr = create_figure(subplots=True, ncols=5, figsize=(24, 6))
 
 def get_errorbars(measure):
     return np.array([measure.median-measure.low, measure.high-measure.median]).reshape(2, 1)
-
 
 
 for d_n, (dataset, data) in enumerate(datasets.items()):
@@ -214,6 +255,7 @@ for d_n, (dataset, data) in enumerate(datasets.items()):
         mouse_tracking, speed, ang_vel, dir_of_mvmt, body_orientation, body_ang_vel \
                          = get_tracking_speed(data.tracking_data_in_center_locomoting, mouse)
 
+        # prep vars
         x = d_n-m_n*.05
         speed_pc = percentile_range(speed, low=25, high=75)
         avel = np.abs(body_ang_vel)
@@ -221,42 +263,171 @@ for d_n, (dataset, data) in enumerate(datasets.items()):
 
         avel_pc = percentile_range(avel, low=25, high=75)
 
-        axarr[0].errorbar(x, speed_pc.median, yerr= get_errorbars(speed_pc),
-                            color = color)
-        axarr[0].scatter(x, speed_pc.median, color=color, s=100, zorder=99)
+        # speed
+        ball_and_errorbar(x, speed_pc.median, axarr[0], yerr= get_errorbars(speed_pc), color=color)
 
-        axarr[1].errorbar(x, avel_pc.median, yerr= get_errorbars(avel_pc),
-                            color = color)
-        axarr[1].scatter(x, avel_pc.median, color=color, s=100, zorder=99)
+        # ang vel
+        ball_and_errorbar(x, avel_pc.median, axarr[1], yerr= get_errorbars(avel_pc), color=color)
 
-    tor_pc = percentile_range(data.outbouts.torosity, low=25, high=75)
-    dist_pc = percentile_range(data.outbouts.distance, low=25, high=75)
-    tot_ang_displ = [np.nansum(v) for v in data.outbouts.ang_vel.values]
+    # prepr bouts vars
+    if outbouts:
+        bouts = data.outbouts
+    else:
+        bouts = data.bouts
+
+    tor_pc = percentile_range(bouts.torosity, low=25, high=75)
+    dist_pc = percentile_range(bouts.distance, low=25, high=75)
+    tot_ang_displ = [np.nansum(v) for v in bouts.ang_vel.values]
     tot_ang_displ_pc = percentile_range(tot_ang_displ, low=25, high=75)
 
-    axarr[2].errorbar(d_n, tor_pc.median, yerr= get_errorbars(tor_pc),
-                            color = color )
-    axarr[2].scatter(d_n, tor_pc.median, color=color, s=100, zorder=99)
-     
-    axarr[3].errorbar(d_n, dist_pc.median, yerr= get_errorbars(dist_pc),
-                            color = color )
-    axarr[3].scatter(d_n, dist_pc.median, color=color, s=100, zorder=99)
+    # torosity
+    ball_and_errorbar(d_n, tor_pc.median, axarr[2], yerr= get_errorbars(tor_pc), color=color)
 
-    axarr[4].errorbar(d_n, tot_ang_displ_pc.median, yerr= get_errorbars(tot_ang_displ_pc),
-                            color = color )
-    axarr[4].scatter(d_n, tot_ang_displ_pc.median, color=color, s=100, zorder=99)
+    # distance
+    ball_and_errorbar(d_n, dist_pc.median, axarr[3], yerr= get_errorbars(dist_pc), color=color)
 
+    # comulative angular displacement
+    ball_and_errorbar(d_n, tot_ang_displ_pc.median, axarr[4], yerr= get_errorbars(tot_ang_displ_pc), color=color)
+    axarr[4].axhline(0, lw=3, ls='--', color=[.7, .7, .7])
+
+# Style axes
 for ax in axarr:
     ax.set(xticks=[0, 1, 2], xticklabels=datasets.keys())
 
-axarr[0].set(title='Median speed per individual mouse', ylabel='median speed')
+if outbouts:
+    axarr[0].set(title='Median speed per individual mouse | outbouts', ylabel='median speed')
+else:
+    axarr[0].set(title='Median speed per individual mouse | bouts', ylabel='median speed')
 axarr[1].set(title='Median abs(ang vel) per individual mouse', ylabel='abs(ang vel')
 axarr[2].set(title='Median torosity per bout', ylabel='median torosity')
 axarr[3].set(title='Median distance per bout', ylabel='median distance')
 axarr[4].set(title='Median comulative ang displacement', ylabel='median')
 
+f.tight_layout()
 clean_axes(f)
 
 
+
+# %%
+# --------------------- Look at high tor vs low tor bouts -------------------- #
+f, axarr = plt.subplots(ncols=3, nrows=2, figsize=(18, 12))
+
+centered=True
+
+for d_n, (dataset, data) in enumerate(datasets.items()):
+    if outbouts:
+        bouts = data.outbouts.sort_values('torosity')
+    else:
+        bouts = data.bouts.sort_values('torosity')
+
+    colors = list(data.colors.values())
+    quarter_bouts = int(len(bouts)/4)
+
+    for n, bb in enumerate([bouts[:quarter_bouts], bouts[-quarter_bouts:]]):
+        for (i, bout) in bb.iterrows():
+            if not centered:
+                axarr[n, d_n].plot(bout.x, bout.y, color=colors[n])
+            else:
+                axarr[n, d_n].plot(bout.x-bout.x[0], bout.y-bout.y[0], color=colors[n])
+
+    axarr[0, d_n].set(title=dataset+'  | LOW torosity', xticks=[], yticks=[])
+    axarr[1, d_n].set(title='HIGH torosity', xticks=[], yticks=[])
+
+clean_axes(f)
+
+# %%
+# ----------------- Look at curvature of high torosity bouts ----------------- #
+f, axarr = plt.subplots(ncols=3,figsize=(18, 6), sharey=True, sharex=True)
+
+mean_thetas = {d:[] for d in datasets.keys()}
+for d_n, (dataset, data) in enumerate(datasets.items()):
+    if outbouts:
+        bouts = data.outbouts.sort_values('torosity')
+    else:
+        bouts = data.bouts.sort_values('torosity')
+
+    color = list(data.colors.values())[0]
+    quarter_bouts = int(len(bouts)/4)
+    
+    all_thetas = []
+    for i, bout in bouts[-quarter_bouts:].iterrows():
+        theta = np.unwrap(bout.body_orientation - bout.body_orientation[0])
+        axarr[d_n].plot(theta, color=color, alpha=.5)
+        all_thetas.extend(list(theta))
+        mean_thetas[dataset].append(np.nanmedian(theta))
+
+    # Plot KDE
+    plot_kde(axarr[d_n], data=all_thetas, vertical=True, normto=50, z=225, color=color)
+
+    axarr[d_n].axhline(0, lw=2, ls='--', color=[.7, .7, .7], alpha=.4, zorder=-1)
+    if d_n == 0:
+        ylab = 'degrees'
+        ttl = ' bouts body orientation'
+    else:
+        ylab, ttl = None, ''
+    axarr[d_n].set(title=dataset.upper()+ttl, xlabel='framen n', 
+                        ylabel=ylab, ylim=[-100, 100])
+clean_axes(f)
+
+# %%
+# Distribution of mean theta
+f, ax = plt.subplots(figsize=(10, 10))
+
+for i, (dataset, mean_theta) in enumerate(mean_thetas.items()):
+    color = list(datasets[dataset].colors.values())[0]
+    ax.scatter(np.random.normal(i, .05, size=len(mean_theta)), mean_theta, color=color)
+    ax.scatter(i, np.mean(mean_theta), color=desaturate_color(color), edgecolor='k', s=300, zorder=99)
+
+ax.axhline(0, lw=2, ls=':', color=[.5, .5, .5], zorder=-1)
+
+from scipy import stats
+stats.ttest_ind(mean_thetas['cno'], mean_thetas['sal'])
+
+
+
+
+# %%
+# ------------------ Plot inner and outer bouts for figures ----------------- #
+
+f, axarr = create_figure(subplots=True, ncols=3, figsize=(27, 9))
+
+for d_n, (dataset, data) in enumerate(datasets.items()):
+    color = list(data.colors.values())[-1]
+
+    for i, bout in data.outbouts.iterrows():
+            axarr[d_n].plot(bout.x, bout.y, color=color, alpha=.3)
+
+    for i, bout in data.bouts.iterrows():
+            axarr[d_n].plot(bout.x, bout.y, color=color)
+
+    axarr[d_n].set(title=dataset.upper(), xticks=[], yticks=[])
+
+clean_axes(f)
+
+
+# %%
+# --------------------------- Plots bouts body axis -------------------------- #
+
+
+bouts = cno.bouts.sort_values('torosity')
+for i, bout in bouts[-10:].iterrows():
+    f, axarr = plt.subplots(ncols=2, figsize=(9, 4))
+
+    theta = bout.body_orientation 
+
+
+    # ax.scatter(bout.x, bout.y, c=theta, vmin=0, vmax=360, cmap='bwr')
+    axarr[0].scatter(bout.neck_x, bout.neck_y, color='red',  alpha=.5, s=25)
+    axarr[0].scatter(bout.x[0], bout.y[0], color='k', s=80)
+    _ = axarr[0].plot([bout.x[1:-1:10], bout.neck_x[1:-1:10]], [bout.y[1:-1:10], bout.neck_y[1:-1:10]], 
+                lw=3, color='k',)
+
+    _ = axarr[1].plot(theta)
+
+
+
+
+# %%
+plt.plot(theta)
 
 # %%

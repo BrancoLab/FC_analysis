@@ -6,7 +6,8 @@ if sys.platform != 'darwin':
     main_data_fld = "Z:\\swc\\branco\\Federico\\Locomotion"
     main_dropbox_fld = "D:\\Dropbox (UCL - SWC)\\Rotation_vte\\Locomotion"
 else:
-    raise NotImplementedError
+    main_data_fld = "/Volumes/swc/branco/Federico/Locomotion"
+    main_dropbox_fld = "/Users/federicoclaudi/Dropbox (UCL - SWC)/Rotation_vte/Locomotion"
 
 # --------------------------------- RAW DATA --------------------------------- #
 raw_video_fld = os.path.join(main_data_fld, 'raw', 'video')

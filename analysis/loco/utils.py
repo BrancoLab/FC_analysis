@@ -69,11 +69,15 @@ def get_tracking_locomoting(tracking_data, center, radius, fps, keep_min, speed_
 #                  CREATE ARRAY OF INDIVIDUAL LOCOMOTION BOUTS                 #
 # ---------------------------------------------------------------------------- #
 def get_bouts_df(tracking_data, fps, keep_min, min_dist=50, min_dur=60):
+    if 'neck_x' in tracking_data.columns:
+        bouts = dict(start=[], end=[],  x=[], y=[], ang_vel=[], dir_of_mvmt=[], speed=[],
+                        body_orientation=[], body_ang_vel=[], neck_x=[], neck_y=[],
+                        distance=[], torosity=[])
 
-
-    bouts = dict(start=[], end=[],  x=[], y=[], ang_vel=[], dir_of_mvmt=[], speed=[],
-                    body_orientation=[], body_ang_vel=[],
-                    distance=[], torosity=[])
+    else:
+        bouts = dict(start=[], end=[],  x=[], y=[], ang_vel=[], dir_of_mvmt=[], speed=[],
+                        body_orientation=[], body_ang_vel=[],
+                        distance=[], torosity=[])
 
     mice = list(set(tracking_data.mouse_id.values))
     for i, mouse in enumerate(mice):
@@ -85,6 +89,10 @@ def get_bouts_df(tracking_data, fps, keep_min, min_dist=50, min_dur=60):
         indices = np.ones_like(x)
         indices[out_of_bounds] = 0
         onsets, offsets = get_times_signal_high_and_low(indices, th=.1)
+
+        if 'neck_x' in tracking_data.columns:
+            mouse_tracking = tracking_data.loc[tracking_data.mouse_id == mouse]
+            nx , ny = mouse_tracking.neck_x.values[0], mouse_tracking.neck_y.values[0]
 
         for onset, offset in zip(onsets, offsets):
             if offset - onset < 5: continue
@@ -99,6 +107,12 @@ def get_bouts_df(tracking_data, fps, keep_min, min_dist=50, min_dur=60):
             bouts['dir_of_mvmt'].append(dir_of_mvmt[onset+1:offset])
             bouts['body_orientation'].append(body_orientation[onset+1:offset])
             bouts['body_ang_vel'].append(body_ang_vel[onset+1:offset])
+
+
+            if 'neck_x' in tracking_data.columns:
+                bouts['neck_x'].append(nx[onset+1:offset])
+                bouts['neck_y'].append(ny[onset+1:offset])
+
 
             distance = np.sum(calc_distance_between_points_in_a_vector_2d(_x, _y))
             min_dist = calc_distance_between_points_2d((_x[0], _y[0]), (_x[-1], _y[-1]))
