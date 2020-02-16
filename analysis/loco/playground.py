@@ -14,7 +14,6 @@ from fcutils.plotting.utils import create_figure, clean_axes, save_figure
 from fcutils.plotting.plot_elements import plot_shaded_withline, ball_and_errorbar
 from fcutils.plotting.colors import salmon, colorMap, goldenrod, desaturate_color
 from fcutils.plotting.plot_distributions import plot_kde
-from fcutils.maths.filtering import median_filter_1d
 from fcutils.maths.stats import percentile_range
 from fcutils.file_io.utils import check_create_folder
 
@@ -112,3 +111,29 @@ sal = fetch_entries(sal_entries, bone_entries, 'Blues', center, radius,
 print(f"Basline entries:\n{baseline_entries}\n\nCNO entries\n{cno_entries}\n\nSAL entries\n{sal_entries}")
 datasets = {'baseline':baseline, 'cno':cno, 'sal':sal}
 
+
+
+# %%
+test = cno.tracking_data.iloc[0]
+
+# %%
+centered = False
+
+f, axarr = create_figure(subplots=True, ncols=3, figsize=(27, 9))
+
+for d_n, (dataset, data) in enumerate(datasets.items()):
+    if not data.mice: continue
+
+    color = list(data.colors.values())[-1]
+
+    bouts = data.turns
+
+    for n, (i, bout) in enumerate(bouts.iterrows()):
+        axarr[d_n].plot(bout.x, bout.y, color=color)
+        if n ==20: break
+
+    axarr[d_n].set(title=dataset+f'  {len(bouts)} bouts', xticks=[], yticks=[])
+
+clean_axes(f)
+
+# %%

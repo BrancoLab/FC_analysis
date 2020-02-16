@@ -83,17 +83,17 @@ lineType               = 2
 
 # %%
 # -------------------------------- Write clip -------------------------------- #
-savepath = os.path.join(output_fld, f'{mouse}_{injected}.mp4')
+savepath = os.path.join(output_fld, f'{mouse}_{injected}_turns.mp4')
 writer = open_cvwriter(
     savepath, w=frame_shape[0], h=frame_shape[1], 
     framerate=out_fps, format=".mp4", iscolor=True)
 
-for boutn, (i, bout) in tqdm(enumerate(data.centerbouts.iterrows())):
+for boutn, (i, bout) in tqdm(enumerate(data.turns.iterrows())):
     for framen in range(bout.start, bout.end):
         frame = background.copy()
 
         # Add text
-        cv2.putText(frame, f'Bout: {boutn} of {len(data.centerbouts)}', 
+        cv2.putText(frame, f'Bout: {boutn} of {len(data.turns)}', 
             bottomLeftCornerOfText, 
             font, 
             fontScale,
