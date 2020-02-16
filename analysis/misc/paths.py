@@ -18,6 +18,7 @@ raw_tracking_fld = os.path.join(main_data_fld, 'raw', 'tracking')
 
 # ------------------------------ Processed Data ------------------------------ #
 processed_stimuli_fld = os.path.join(main_data_fld, 'processed', 'stimuli')
+output_fld = os.path.join(main_dropbox_fld, 'output')
 
 
 # --------------------------------- METADATA --------------------------------- #

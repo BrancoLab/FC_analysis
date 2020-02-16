@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
+from collections import namedtuple
 
 from fcutils.maths.geometry import calc_distance_from_point
 from fcutils.maths.geometry import calc_distance_between_points_in_a_vector_2d, calc_distance_between_points_2d
+from fcutils.plotting.colors import salmon, colorMap, goldenrod, desaturate_color
 
 from behaviour.utilities.signals import get_times_signal_high_and_low
 
@@ -68,7 +70,7 @@ def get_tracking_locomoting(tracking_data, center, radius, fps, keep_min, speed_
 # ---------------------------------------------------------------------------- #
 #                  CREATE ARRAY OF INDIVIDUAL LOCOMOTION BOUTS                 #
 # ---------------------------------------------------------------------------- #
-def get_bouts_df(tracking_data, fps, keep_min, min_dist=50, min_dur=60):
+def get_bouts_df(tracking_data, fps, keep_min, min_dist=10, min_dur=20):
     if 'neck_x' in tracking_data.columns:
         bouts = dict(start=[], end=[],  x=[], y=[], ang_vel=[], dir_of_mvmt=[], speed=[],
                         body_orientation=[], body_ang_vel=[], neck_x=[], neck_y=[],
@@ -89,13 +91,18 @@ def get_bouts_df(tracking_data, fps, keep_min, min_dist=50, min_dur=60):
         indices = np.ones_like(x)
         indices[out_of_bounds] = 0
         onsets, offsets = get_times_signal_high_and_low(indices, th=.1)
+        if offsets[0] < onsets[0]:
+            offsets = offsets[1:]
 
         if 'neck_x' in tracking_data.columns:
             mouse_tracking = tracking_data.loc[tracking_data.mouse_id == mouse]
             nx , ny = mouse_tracking.neck_x.values[0], mouse_tracking.neck_y.values[0]
 
         for onset, offset in zip(onsets, offsets):
-            if offset - onset < 5: continue
+            if onset > offset:
+                raise ValueError
+            if offset - onset < 2: 
+                continue
             _x, _y = x[onset+1:offset], y[onset+1:offset]
 
             bouts['start'].append(onset+1)
@@ -126,3 +133,60 @@ def get_bouts_df(tracking_data, fps, keep_min, min_dist=50, min_dur=60):
 
     bouts = bouts.loc[(bouts.duration > min_dur)&(bouts.distance > min_dist)]
     return bouts
+
+
+
+
+# ---------------------------------------------------------------------------- #
+#                                FETCH COMPLETE                                #
+# ---------------------------------------------------------------------------- #
+def fetch_entries(entries, bone_entries, cmap, center, radius,  fps, keep_min, speed_th, neck_entries=None):
+    dataset = namedtuple('dataset', 
+            'tracking_data, tracking_data_in_center, tracking_data_not_in_center, \
+            tracking_data_in_center_locomoting, tracking_data_not_in_center_locomoting, \
+            centerbouts, bouts, outbouts, \
+            mice, colors')
+
+    # Get body trackingdata
+    tracking_data = pd.DataFrame(entries.fetch())
+
+    # Get neck tracking data if needed
+    if neck_entries is not None:
+        neck_tracking = pd.DataFrame(neck_entries.fetch())
+        tracking_data['neck_x'] = neck_tracking.x.values
+        tracking_data['neck_y'] = neck_tracking.y.values
+
+    # Get body orientation from bone tracking data
+    bone_tracking_data = pd.DataFrame(bone_entries.fetch())
+    tracking_data['body_orientation'] = bone_tracking_data['orientation']
+    tracking_data['body_ang_vel'] = bone_tracking_data['angular_velocity']
+
+    # Get the tracking for when the mouse is in the central area and when it is not. 
+    tracking_data_in_center = get_tracking_in_center(tracking_data, center, radius,  fps, keep_min)
+    tracking_data_not_in_center = get_tracking_in_center(tracking_data, center, radius,  fps, keep_min, reverse=True)
+
+    # Get the tracking when the mouse is locomoting
+    tracking_data_in_center_locomoting = get_tracking_locomoting(tracking_data_in_center, center, radius,  fps, keep_min, speed_th)
+    tracking_data_not_in_center_locomoting = get_tracking_locomoting(tracking_data_not_in_center, center, radius,  fps, keep_min, speed_th)
+
+    # Get locomotion bouts
+    centerbouts = get_bouts_df(tracking_data_in_center, fps, keep_min)
+    bouts = get_bouts_df(tracking_data_in_center_locomoting, fps, keep_min)
+    outbouts = get_bouts_df(tracking_data_not_in_center_locomoting, fps, keep_min)
+
+    # Prepare some more variables
+    mice = list(tracking_data.mouse_id.values)
+    colors = {m:colorMap(i, cmap, vmin=-3, vmax=len(mice)) \
+                        for i,m in enumerate(mice)}
+
+    return dataset(
+                tracking_data, 
+                tracking_data_in_center, 
+                tracking_data_not_in_center, 
+                tracking_data_in_center_locomoting,
+                tracking_data_not_in_center_locomoting,
+                centerbouts,
+                bouts,
+                outbouts,
+                mice, 
+                colors)
