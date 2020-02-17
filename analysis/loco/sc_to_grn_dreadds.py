@@ -207,8 +207,8 @@ for dn, (dataset, bouts) in enumerate(all_bouts.items()):
     left_avg_displ = [np.sum(b.ang_vel) for i, b in bouts['left_turn'].iterrows()]
     right_avg_displ = [np.sum(b.ang_vel) for i, b in bouts['right_turn'].iterrows()]
     plot_kde(axarr[2, dn], data=left_avg_displ, color=color, label=dataset+' left turn')
-    plot_kde(axarr[2, dn], data=np.abs(right_avg_displ), color=desaturate_color(color, k=.3), label=dataset+' right turn')
-    axarr[2, dn].set(title='avg bout absolute angular displacement', xlabel='degrees', ylabel='density', xlim=[0, 100], ylim=[0, .07])
+    plot_kde(axarr[2, dn], data=right_avg_displ, color=desaturate_color(color, k=.3), label=dataset+' right turn')
+    axarr[2, dn].set(title='avg bout absolute angular displacement', xlabel='degrees', ylabel='density', xlim=[-100, 100], ylim=[0, .07])
     axarr[2, dn].legend()
 
 
@@ -217,8 +217,8 @@ for dn, (dataset, bouts) in enumerate(all_bouts.items()):
     right_avg_displ = [np.mean(b.ang_vel) for i, b in bouts['right_turn'].iterrows()]
 
     plot_kde(axarr[3, dn], data=left_avg_displ, color=color, label=dataset+' left turn')
-    plot_kde(axarr[3, dn], data=np.abs(right_avg_displ), color=desaturate_color(color, k=.3), label=dataset+' right turn')
-    axarr[3, dn].set(title='avg bout absolute angular velocity', xlabel='degrees/frame', ylabel='density', xlim=[0, 5], ylim=[0, 1.25])
+    plot_kde(axarr[3, dn], data=right_avg_displ, color=desaturate_color(color, k=.3), label=dataset+' right turn')
+    axarr[3, dn].set(title='avg bout absolute angular velocity', xlabel='degrees/frame', ylabel='density', xlim=[-5, 5], ylim=[0, 1.25])
     axarr[3, dn].legend()
 
 clean_axes(f)
