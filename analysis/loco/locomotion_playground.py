@@ -29,15 +29,7 @@ experiment = 'Circarena'
 subexperiment = 'baseline'
 bpart = 'body'
 
-# ----------------------------------- Vars ----------------------------------- #
-speed_th = 1 # frames with speed > th are considered locomotion
-high_speed_th=5 # frames with speed > th are considered fast locomotion
-
-
 fps=60
-keep_min = None
-
-get_tracking_speed = partial(get_tracking_speed, fps, keep_min)
 
 # Vars to exlude when mice are on the walls
 center = (480, 480)
