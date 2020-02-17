@@ -11,10 +11,11 @@ CONVERT_VIDEOS = False # Set as true to convert video locally, else make bash sc
 TRACK_VIDEOS=False
 
 POPULATE = True
-SUMMARY = True
+SUMMARY = False
        
 FPS = 60
 
+# ProcessedMouse.drop()
 
 # ---------------------------------------------------------------------------- #
 #                                    PRELIMS                                   #
@@ -46,6 +47,9 @@ if POPULATE:
     # ? Tracking
     Tracking.populate(display_progress=True)
 
+    # ? Processed tracking
+    ProcessedMouse.populate(display_progress=True)
+
 
 # ---------------------------------------------------------------------------- #
 #                               PRINT DBASE STATE                              #
@@ -72,3 +76,7 @@ if SUMMARY:
     print("\n\n\n----------------------------------------------------------------------------")
     print("--- TRACKING ---\n")
     print((Tracking * Tracking.BodyPartTracking & "bp='body'"))
+
+    print("\n\n\n----------------------------------------------------------------------------")
+    print("--- PROCESSED TRACKING ---\n")
+    print((ProcessedMouse()))

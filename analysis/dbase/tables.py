@@ -1,14 +1,15 @@
 import datajoint as dj
 import pandas as pd
 import datetime
+import numpy as np
 
 from behaviour.tracking.tracking import prepare_tracking_data, compute_body_segments
 from fcutils.file_io.io import load_excel_file, load_yaml
 from fcutils.file_io.utils import listdir
+from fcutils.maths.filtering import median_filter_1d
 
 from analysis.misc.paths import *
 from analysis.misc.paths import experiments_file, surgeries_file
-
 from analysis.dbase.utils.dj_config import start_connection, dbname
 
 schema = start_connection()
@@ -314,4 +315,43 @@ class Tracking(dj.Imported):
 			segment_key['angular_velocity'] = bones_tracking[bone]['angular_velocity'].values
 
 			self.BodySegmentTracking.insert1(segment_key)
+
+@schema
+class ProcessedMouse(dj.Computed):
+	definition = """
+		-> Tracking
+		---
+		speed: longblob
+		orientation: longblob
+		ang_vel: longblob
+		x: longblob
+		y: longblob
+	"""
+	def _make_tuples(self, key):
+		bp_tracking = pd.DataFrame((Tracking * Tracking.BodyPartTracking & key).fetch())
+		bones_tracking = pd.DataFrame((Tracking * Tracking.BodySegmentTracking & key).fetch())
+
+		# Get average speed
+		speeds = np.vstack(bp_tracking.speed.values)
+
+		key['speed'] = median_filter_1d(np.nanmean(speeds, axis=0))
+
+		# Get average orientation
+		upper_torso = bones_tracking.loc[bones_tracking.bp1 == 'neck'].iloc[0]
+		lower_torso = bones_tracking.loc[bones_tracking.bp1 == 'body'].iloc[0]
+
+		thetas = np.vstack([upper_torso.orientation, lower_torso.orientation])
+		key['orientation'] = median_filter_1d(np.nanmean(thetas, axis=0))
+
+		# Get average angular velocity
+		head = bones_tracking.loc[(bones_tracking.bp1 == 'snout')&(bones_tracking.bp2 == 'neck')].iloc[0]
+		
+		thetas_dot = np.array([head.angular_velocity, upper_torso.angular_velocity, lower_torso.angular_velocity])
+		key['ang_vel'] = median_filter_1d(np.nanmean(thetas_dot, axis=0))
+
+		# Get body coordintes#
+		key['x'] = bp_tracking.loc[bp_tracking.bp == 'body'].iloc[0].x
+		key['y'] = bp_tracking.loc[bp_tracking.bp == 'body'].iloc[0].y
+
+		self.insert1(key)
 
