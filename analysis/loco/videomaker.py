@@ -13,6 +13,7 @@ import cv2
 from tqdm import tqdm
 
 from fcutils.video.utils import open_cvwriter
+from fcutils.maths.filtering import median_filter_1d
 
 
 from behaviour.utilities.signals import get_times_signal_high_and_low
@@ -80,59 +81,129 @@ fontScale              = 1
 fontColor              = (255,255,255)
 lineType               = 2
 
+# %%
 
+# --------------------------------- Get state -------------------------------- #
+# Fetch data
+print("Fetching baseline")
+baseline_entries = Session  * Session.IPinjection * Tracking.BodyPartTracking & f"exp_name='{experiment}'" \
+                & f"subname='{subexperiment}'" & f"mouse_id='{mouse}'" &  f"injected='{injected}'"
+bone_entries = Session  * Session.IPinjection * Tracking.BodySegmentTracking & f"exp_name='{experiment}'" \
+                & f"subname='{subexperiment}'" & f"mouse_id='{mouse}'" &  f"injected='{injected}'"
+
+bparts = pd.DataFrame(baseline_entries.fetch())
+bones = pd.DataFrame(bone_entries.fetch())
+
+head = bones.loc[(bones.bp1=='neck')&(bones.bp2=='body')].iloc[0]
+body = bones.loc[(bones.bp1=='body')&(bones.bp2=='tail')].iloc[0]
+
+# Get clean angular velocity
+head_theta_dot = np.concatenate([[0], np.degrees(np.diff(np.unwrap(np.radians(np.nan_to_num(head.orientation)))))])
+body_theta_dot = np.concatenate([[0], np.degrees(np.diff(np.unwrap(np.radians(np.nan_to_num(body.orientation)))))])
+mean_theta_dot = median_filter_1d(np.mean([head_theta_dot, body_theta_dot], axis=0))
+
+
+# Get clean speed
+speeds = np.vstack([s for s in bparts.loc[bparts.bp != 'snout'].speed.values])
+mean_x_dot = median_filter_1d(np.nanmean(speeds, axis=0))
+
+turners = np.where((np.abs(mean_theta_dot) > mean_x_dot/4)&(np.abs(mean_theta_dot) > 0.5))[0]
+runners = np.where((np.abs(mean_theta_dot) < mean_x_dot/4)&(mean_x_dot>2))[0]
+
+turns = np.array([mean_x_dot[turners], mean_theta_dot[turners]])
+runs = np.array([mean_x_dot[runners], mean_theta_dot[runners]])
+
+from sklearn import preprocessing
+from sklearn.cluster import KMeans
+
+standardised_x_dot = preprocessing.scale(mean_x_dot)
+standardised_theta_dot = preprocessing.scale(mean_theta_dot)
+
+dataset = pd.DataFrame(dict(x=np.nan_to_num(standardised_x_dot), y=np.nan_to_num(standardised_theta_dot)))
+kmeans = KMeans(n_clusters = 4, init = 'k-means++', random_state = 42)
+res = kmeans.fit(dataset)
+
+y_kmeans = kmeans.fit_predict(dataset)
+dataset['cluster'] = y_kmeans
+
+state = []
+for k in y_kmeans:
+    if k == 0:
+        state.append('turn right')
+    elif k == 1:
+        state.append('stationary')
+    elif k == 2:
+        state.append('running')
+    else:
+        state.append('turn left')
 # %%
 # -------------------------------- Write clip -------------------------------- #
-savepath = os.path.join(output_fld, f'{mouse}_{injected}_turns.mp4')
+savepath = os.path.join(output_fld, f'{mouse}_{injected}_test.mp4')
 writer = open_cvwriter(
     savepath, w=frame_shape[0], h=frame_shape[1], 
     framerate=out_fps, format=".mp4", iscolor=True)
 
-for boutn, (i, bout) in tqdm(enumerate(data.turns.iterrows())):
-    for framen in range(bout.start, bout.end):
-        frame = background.copy()
 
-        # Add text
-        cv2.putText(frame, f'Bout: {boutn} of {len(data.turns)}', 
-            bottomLeftCornerOfText, 
-            font, 
-            fontScale,
-            fontColor,
-            lineType)
+for framen in tqdm(range(n_frames)):
+    frame = background.copy()
 
-        # Add head tracking
-        points = []
-        for bp, tr in tracking.items():
-            if bp not in ['snout', 'left_ear', 'right_ear']: continue
+    # Add text
+    # cv2.putText(frame, f'Bout: {boutn} of {len(data.turns)}', 
+    #     bottomLeftCornerOfText, 
+    #     font, 
+    #     fontScale,
+    #     fontColor,
+    #     lineType)
 
-            x, y = tr.x.values[0][framen], tr.y.values[0][framen]
-            if np.isnan(x) or np.isnan(y): 
-                continue
-            points.append(np.array([y, x], np.int32))
-        if len(points) == 3:
-            points = np.array(points).reshape((-1, 1, 2))
-            cv2.fillConvexPoly(frame, points,(0,0,255))
+    # Add head tracking
+    points = []
+    for bp, tr in tracking.items():
+        if bp not in ['snout', 'left_ear', 'right_ear']: continue
 
-        # Add boxy tracking
-        points = []
-        for bp, tr in tracking.items():
-            if bp not in ['left_ear', 'right_ear', 'body']: continue
-            x, y = tr.x.values[0][framen], tr.y.values[0][framen]
+        x, y = tr.x.values[0][framen], tr.y.values[0][framen]
+        if np.isnan(x) or np.isnan(y): 
+            continue
+        points.append(np.array([y, x], np.int32))
+    if len(points) == 3:
+        points = np.array(points).reshape((-1, 1, 2))
+        cv2.fillConvexPoly(frame, points,(0,0,255))
 
-            if np.isnan(x) or np.isnan(y): 
-                continue
-            points.append(np.array([y, x], np.int32))
+    # Add boxy tracking
+    points = []
+    for bp, tr in tracking.items():
+        if bp not in ['left_ear', 'right_ear', 'body']: continue
+        x, y = tr.x.values[0][framen], tr.y.values[0][framen]
 
-        if len(points) == 3:
-            points = np.array(points).reshape((-1, 1, 2))
-            cv2.fillConvexPoly(frame, points,(0,255,0))
-        
-        # Add marker to see if it's locomoting
-        if not is_locomoting[framen]:
-            cv2.circle(frame, (75, 75), 50, (200, 200, 200), -1)
-        else:
-            cv2.circle(frame, (75, 75), 50, (50, 255, 50), -1)
-        writer.write(frame.astype(np.uint8))
+        if np.isnan(x) or np.isnan(y): 
+            continue
+        points.append(np.array([y, x], np.int32))
+
+    if len(points) == 3:
+        points = np.array(points).reshape((-1, 1, 2))
+        cv2.fillConvexPoly(frame, points,(0,255,0))
+    
+    # Add marker to see if it's locomoting
+    # if state[framen] == 0:
+    #     color = (200, 200, 200)
+    #     t = 'stationary'
+    # elif state[framen] == 1:
+    #     color =  (50, 255, 50)
+    #     t = 'turning'
+    # else:
+    #     color = (50, 50, 255)
+    #     t = 'running'
+    color = (200, 200, 200)
+
+    cv2.circle(frame, (75, 75), 50, color, -1)
+    cv2.putText(frame, f'Status: {state[framen]}', 
+        (10, 950), 
+        font, 
+        fontScale,
+        color,
+        lineType)
+
+    writer.write(frame.astype(np.uint8))
+    if framen > 5000: break
 writer.release()
 
 
