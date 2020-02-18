@@ -23,13 +23,14 @@ from behaviour.utilities.signals import get_times_signal_high_and_low
 
 from analysis.loco.utils import fetch_tracking, get_frames_state
 from analysis.misc.paths import output_fld
-
+from sklearn import preprocessing
+from sklearn.cluster import KMeans
 
 # %%
 # --------------------------------- Variables -------------------------------- #
 experiment = 'Circarena'
 subexperiment = 'baseline'
-cno_subexperiment = 'dreadds_sc_to_grn'
+cno_subexperiment = 'fetch_tracking_processed'
 
 # ----------------------------------- Vars ----------------------------------- #
 speed_th = 1 # frames with speed > th are considered locomotion
@@ -51,7 +52,25 @@ tracking = fetch_tracking(mouse = 'CA826', injected='CNO')
 
 
 
-state = get_frames_state(tracking)
 
+
+# %%
+speed = preprocessing.scale(np.nan_to_num(tracking.speed.values[0]))
+angular_velocity = preprocessing.scale(np.nan_to_num(tracking.angular_velocity.values[0]))
+
+# Fit kmeans
+dataset = pd.DataFrame(dict(speed=speed, angular_velocity=angular_velocity))
+kmeans = KMeans(n_clusters = 7, init = 'k-means++', random_state = 42)
+res = kmeans.fit(dataset)
+
+# Get cluster and state
+y_kmeans = kmeans.fit_predict(dataset)
+dataset['cluster'] = y_kmeans
+
+# Get state from clusters
+clusters_means = round(dataset.groupby('cluster').mean(),1)
+
+# %%
+plt.scatter(dataset.speed, dataset.angular_velocity, c=dataset.cluster)
 
 # %%
