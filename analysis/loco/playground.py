@@ -60,7 +60,7 @@ angular_velocity = preprocessing.scale(np.nan_to_num(tracking.angular_velocity.v
 
 # Fit kmeans
 dataset = pd.DataFrame(dict(speed=speed, angular_velocity=angular_velocity))
-kmeans = KMeans(n_clusters = 7, init = 'k-means++', random_state = 42)
+kmeans = KMeans(n_clusters = 19, init = 'k-means++', random_state = 42)
 res = kmeans.fit(dataset)
 
 # Get cluster and state

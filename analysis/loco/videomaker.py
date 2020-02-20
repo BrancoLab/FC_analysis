@@ -70,16 +70,19 @@ if use_real_video:
 
 # %%
 # -------------------------------- Write clip -------------------------------- #
-savepath = os.path.join(output_fld, f'{mouse}_{injected}_real.mp4')
+savepath = os.path.join(output_fld, f'{mouse}_{injected}_manyclusters.mp4')
 writer = open_cvwriter(
     savepath, w=frame_shape[0], h=frame_shape[1], 
     framerate=fps, format=".mp4", iscolor=True)
 
 
 for framen in tqdm(range(n_frames)):
-    if not tracking.in_center[framen]:
-        continue
+    # if not tracking.in_center[framen]:
+    #     continue
     
+    if not tracking.cluster[framen] in [4, 6]:
+        continue
+
     if use_real_video:
         frame = get_cap_selected_frame(videocap, framen)
     else:
@@ -115,26 +118,26 @@ for framen in tqdm(range(n_frames)):
 
     
     # Add marker to see if it's locomoting
-    if tracking.state[framen] == 'stationary':
-        color = (200, 200, 200)
-    elif tracking.state[framen] == 'left_turn':
-        color = (255, 50, 50)
-    elif tracking.state[framen] == 'right_turn':
-        color = (50, 255, 50)
-    else:
-        color = (50, 50, 255)
+    colors = dict(stationary = (180, 180, 180),
+                    walking = (255, 255, 255),
+                    running = (255, 180, 180),
+                    left_turn = (180, 255, 180),
+                    right_turn = (180, 180, 255),
+                    slow_left_turn = (140, 240, 140),
+                    slow_right_turn = (140, 140, 240),)
 
-    cv2.circle(frame, (75, 75), 50, color, -1)
+
+    cv2.circle(frame, (75, 75), 50, colors[tracking.state[framen]], -1)
     cv2.putText(frame, f'Status: {tracking.state[framen]}', 
         (10, 950), 
         font, 
         fontScale,
-        color,
+        colors[tracking.state[framen]],
         lineType)
 
     writer.write(frame.astype(np.uint8))
 
-    if framen > 10000:
+    if framen > 2500:
         break
 writer.release()
 
