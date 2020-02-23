@@ -80,7 +80,7 @@ colors = dict(baseline=[.2, .8, .2],
             SAL=[.2, .2, .8])
 cmaps = dict(baseline='Greens', CNO='Reds', SAL='Blues')
 mice_colors = {k:{m:colorMap(i, cmaps[k], vmin=-4, vmax=len(mice)) for i,m in enumerate(mice[k])} for k in datasets.keys()}
-states = ['left_turn', 'right_turn', 'running', 'stationary']
+states = ['left_turn', 'right_turn', 'locomotion_0', 'locomotion_1', 'locomotion_2', 'locomotion_3']
 
 
 # %%  
@@ -98,7 +98,7 @@ for dn, (dataset, datas) in enumerate(datasets.items()):
         in_states = [len(data.loc[data.state == state]) / tot_frames for state in states]
         axarr[0, dn].plot(x, in_states, 'o', ls='--', color=color, lw=2, ms=15, alpha=.75, label=mouse)
 
-        axarr[0, dn].set(title=dataset.upper(), ylabel='time in state', xticks=[0, 1, 2, 3], 
+        axarr[0, dn].set(title=dataset.upper(), ylabel='time in state', xticks=[0, 1, 2, 3, 4, 5], 
                             xticklabels=states, ylim=[0, 1])
         axarr[0, dn].legend()
 
@@ -125,10 +125,13 @@ for dn, (dataset, datas) in enumerate(datasets.items()):
         axarr[2, dn].legend()
 
         # Plot distribution of running speeds
-        running = data.loc[data.state == 'running']
-        axarr[3, dn].hist(running.speed.values, label=mouse, bins=30, alpha=.5, density=True, color=color)
+        running = data.loc[(data.state == 'locomotion_2') | (data.state == 'locomotion_3')]
+        axarr[3, dn].hist(running.speed.values, label=mouse, bins=30, alpha=.25, density=False, color=color)
 
-        axarr[3, dn].set(xlim=[0, 16], ylim=[0, .3], xlabel='px/frame', ylabel='density', title='Running speed')
+        running = data.loc[(data.state == 'locomotion_0') | (data.state == 'locomotion_1')]
+        axarr[3, dn].hist(running.speed.values, label=mouse, bins=30, alpha=.25, density=False, color=desaturate_color(color))
+
+        axarr[3, dn].set(xlim=[0, 16], ylim=[0, 20000], xlabel='px/frame', ylabel='density', title='Running speed')
         axarr[3, dn].legend()
 
 
@@ -136,17 +139,32 @@ clean_axes(f)
 f.tight_layout()
 
 # %%
+xticks = []
+xticklabels = []
+f, ax = plt.subplots(figsize=(18, 6))
 for dn, (dataset, datas) in enumerate(datasets.items()):
     for mouse, data in datas.items():
         left = data.loc[data.state == 'left_turn']
         right = data.loc[data.state == 'right_turn']
 
-        print(f'{dataset} - {mouse} - left revolutions: {np.sum(left.ang_vel) /360}, right revolutions {np.sum(np.abs(right.ang_vel)) /360}')
+        left_turns = -np.sum(left.ang_vel) /360
+        right_turns = (np.sum(right.ang_vel) /360)/left_turns
+        left_turns = 1
+        print(f'{dataset} - {mouse} - left revolutions: {round(left_turns)}, right revolutions {round(right_turns)}')
+
+        ax.plot([dn-.2, dn+.2], [left_turns, right_turns], 'o', ls='--', 
+                color=mice_colors[dataset][mouse], alpha=.4)
+        xticks.extend([dn-.2, dn+.2])
+    xticklabels.extend(['LEFT', 'RIGHT'])
+
+ax.set(title='Number of left vs right revolutions', ylabel='# revolution  / # left revolutions',
+        xticks=xticks, xticklabels=xticklabels)
+ax.axhline(1, color='k', ls=':', alpha=.5)
 
 # %%
 # --------------------------------- Get bouts -------------------------------- #
 all_bouts = {}
-bouts_types = ['running', 'left_turn', 'right_turn']
+bouts_types = ['left_turn', 'right_turn']
 for dn, (dataset, datas) in enumerate(datasets.items()):
     bouts = {k:[] for k in bouts_types}
     for mouse, data in datas.items():
@@ -166,7 +184,9 @@ for dn, (dataset, datas) in enumerate(datasets.items()):
                         state=[], in_center=[], mouse=[])
 
             for onset, offset in zip(onsets, offsets):
+                onset += 1
                 if offset < onset: raise ValueError
+                elif offset - onset < 10: continue
                 
                 bts['start'].append(onset)
                 bts['end'].append(offset)
@@ -187,14 +207,14 @@ for dn, (dataset, datas) in enumerate(datasets.items()):
 #%%
 # ---------------- Look at distance distribution for tun bouts --------------- #
 
-test_bouts = all_bouts['baseline']['right_turn']
+test_bouts = all_bouts['CNO']['right_turn']
 distances = [np.sum(s) for s in test_bouts.speed]
 
-for i, bout in test_bouts[:40].iterrows():
+for i, bout in test_bouts[40:480].iterrows():
     x0 = bout.x[0]
     y0 = bout.y[0]
 
-    plt.plot(bout.x-x0, bout.y-y0)
+    plt.plot(bout.x-x0, bout.y-y0,) #  c=bout.ang_vel/bout.speed, cmap='Reds')
     
 
 

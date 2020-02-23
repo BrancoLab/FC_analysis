@@ -55,12 +55,15 @@ tracking = fetch_tracking(mouse = 'CA826', injected='CNO')
 
 
 # %%
-speed = preprocessing.scale(np.nan_to_num(tracking.speed.values[0]))
-angular_velocity = preprocessing.scale(np.nan_to_num(tracking.angular_velocity.values[0]))
+
+sdot, tdot = np.nan_to_num(tracking.speed.values[0]), np.nan_to_num(tracking.angular_velocity.values[0])
+speed = preprocessing.scale(sdot)
+angular_velocity = preprocessing.scale(tdot)
+# angular_velocity -= speed
 
 # Fit kmeans
 dataset = pd.DataFrame(dict(speed=speed, angular_velocity=angular_velocity))
-kmeans = KMeans(n_clusters = 19, init = 'k-means++', random_state = 42)
+kmeans = KMeans(n_clusters = 10, init = 'k-means++', random_state = 42)
 res = kmeans.fit(dataset)
 
 # Get cluster and state
@@ -70,7 +73,7 @@ dataset['cluster'] = y_kmeans
 # Get state from clusters
 clusters_means = round(dataset.groupby('cluster').mean(),1)
 
-# %%
-plt.scatter(dataset.speed, dataset.angular_velocity, c=dataset.cluster)
-
+dataset = dataset[:10000]
+plt.scatter(dataset.speed, dataset.angular_velocity, c=dataset.cluster, alpha=.8)
+clusters_means.sort_values('angular_velocity')
 # %%

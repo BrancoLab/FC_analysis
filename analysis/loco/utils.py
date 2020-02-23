@@ -101,7 +101,7 @@ def get_frames_state(tracking):
 
     # Fit kmeans
     dataset = pd.DataFrame(dict(speed=speed, angular_velocity=angular_velocity))
-    kmeans = KMeans(n_clusters = 4, init = 'k-means++', random_state = 42)
+    kmeans = KMeans(n_clusters = 10, init = 'k-means++', random_state = 42)
     res = kmeans.fit(dataset)
 
     # Get cluster and state
@@ -112,28 +112,30 @@ def get_frames_state(tracking):
     # Get state from clusters
     clusters_means = round(dataset.groupby('cluster').mean(),1)
 
-    stationary_cluster = clusters_means.speed.idxmin()
-    running_cluster = clusters_means.speed.idxmax()
-    left_turn_cluster = clusters_means.angular_velocity.idxmax()
-    right_turn_cluster = clusters_means.angular_velocity.idxmin()
-
-    # stationary_cluster = 3
-    # slow_cluster = 0
-    # running_cluster = 1
-    # slow_left_turn_cluster = 5
-    # left_turn_cluster = 2
-    # slow_right_turn_cluster = 6
-    # right_turn_cluster = 4
+    left_clusters = clusters_means.loc[clusters_means.angular_velocity < -.5]
+    left_clusters_index = list(left_clusters.index.values)
+    right_clusters = clusters_means.loc[clusters_means.angular_velocity > .5]
+    right_clusters_index = list(right_clusters.index.values)
 
 
-    clusters = dict(stationary = stationary_cluster,
-                    running = running_cluster,
-                    left_turn = left_turn_cluster,
-                    right_turn = right_turn_cluster,
+    clusters = dict(
+                    left_turn = 'left',
+                    right_turn = 'right',
                     )
+
+    running_clusters = clusters_means.loc[
+                    (clusters_means.angular_velocity > -.5) &
+                    (clusters_means.angular_velocity < .5)].sort_values('speed')
+    for i, idx in enumerate(running_clusters.index.values):
+        clusters[f'locomotion_{i}'] = idx
 
     clusters_lookup = {v:k for k,v in clusters.items()}
 
+
+    # Clean up states
+    y_kmeans = ['left' if k in left_clusters_index else 
+                'right' if k in right_clusters_index else k
+                        for k in y_kmeans]
     state = [clusters_lookup[v] for v in y_kmeans]
     tracking['state'] = state
 
