@@ -25,7 +25,7 @@ from analysis.dbase.tables import Session
 # --------------------------------- Variables -------------------------------- #
 experiment = 'Circarena'
 subexperiment = 'dreadds_sc_to_grn'
-mouse = 'CA826'
+mouse = 'CA817'
 injected = 'CNO'
 use_real_video = True
 
@@ -70,19 +70,13 @@ if use_real_video:
 
 # %%
 # -------------------------------- Write clip -------------------------------- #
-savepath = os.path.join(output_fld, f'{mouse}_{injected}_manyclusters.mp4')
+savepath = os.path.join(output_fld, f'{mouse}_{injected}_real.mp4')
 writer = open_cvwriter(
     savepath, w=frame_shape[0], h=frame_shape[1], 
     framerate=fps, format=".mp4", iscolor=True)
 
 
 for framen in tqdm(range(n_frames)):
-    # if not tracking.in_center[framen]:
-    #     continue
-    
-    if not tracking.cluster[framen] in [4, 6]:
-        continue
-
     if use_real_video:
         frame = get_cap_selected_frame(videocap, framen)
     else:

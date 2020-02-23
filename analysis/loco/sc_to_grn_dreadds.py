@@ -161,7 +161,8 @@ for dn, (dataset, datas) in enumerate(datasets.items()):
             if offsets[0] < onsets[0]:
                 offsets = offsets[1:]
 
-            bts = dict(start=[], end=[], speed=[], orientation=[], ang_vel=[], x=[], y=[],
+            bts = dict(start=[], end=[], speed=[], orientation=[], 
+                        ang_vel=[], x=[], y=[],
                         state=[], in_center=[], mouse=[])
 
             for onset, offset in zip(onsets, offsets):
@@ -181,6 +182,23 @@ for dn, (dataset, datas) in enumerate(datasets.items()):
             bouts[bout_type].append(pd.DataFrame(bts))
     
     all_bouts[dataset] = {k:pd.concat(b) for k,b in bouts.items()}
+
+
+#%%
+# ---------------- Look at distance distribution for tun bouts --------------- #
+
+test_bouts = all_bouts['baseline']['right_turn']
+distances = [np.sum(s) for s in test_bouts.speed]
+
+for i, bout in test_bouts[:40].iterrows():
+    x0 = bout.x[0]
+    y0 = bout.y[0]
+
+    plt.plot(bout.x-x0, bout.y-y0)
+    
+
+
+
 
 # %%
 # -------------------------------- Bouts plots ------------------------------- #
