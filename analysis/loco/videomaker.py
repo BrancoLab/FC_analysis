@@ -28,6 +28,9 @@ subexperiment = 'dreadds_sc_to_grn'
 mouse = 'CA817'
 injected = 'CNO'
 use_real_video = True
+use_cluster = False
+use_in_center = True
+slowmo = False
 
 
 
@@ -35,6 +38,8 @@ use_real_video = True
 center = (480, 480)
 radius = 350
 fps=60
+if slowmo:
+    fps = int(fps/10)
 
 # Prepare background
 frame_shape = (960, 960)
@@ -70,13 +75,19 @@ if use_real_video:
 
 # %%
 # -------------------------------- Write clip -------------------------------- #
-savepath = os.path.join(output_fld, f'{mouse}_{injected}_real.mp4')
+savepath = os.path.join(output_fld, f'{mouse}_{injected}_real_{use_cluster}.mp4')
 writer = open_cvwriter(
     savepath, w=frame_shape[0], h=frame_shape[1], 
     framerate=fps, format=".mp4", iscolor=True)
 
 
 for framen in tqdm(range(n_frames)):
+    if use_cluster:
+        if tracking.state[framen] != use_cluster: continue
+
+    if use_in_center:
+        if not tracking.in_center[framen]: continue
+
     if use_real_video:
         frame = get_cap_selected_frame(videocap, framen)
     else:
@@ -113,6 +124,10 @@ for framen in tqdm(range(n_frames)):
     
     # Add marker to see if it's locomoting
     colors = dict(stationary = (180, 180, 180),
+                    locomotion_0 = (180, 180, 180),
+                    locomotion_1 = (180, 180, 180),
+                    locomotion_2 = (255, 180, 180),
+                    locomotion_3 = (255, 180, 180),
                     walking = (255, 255, 255),
                     running = (255, 180, 180),
                     left_turn = (180, 255, 180),
@@ -131,8 +146,7 @@ for framen in tqdm(range(n_frames)):
 
     writer.write(frame.astype(np.uint8))
 
-    if framen > 2500:
-        break
+
 writer.release()
 
 

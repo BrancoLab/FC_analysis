@@ -23,7 +23,7 @@ from fcutils.maths.filtering import line_smoother
 from behaviour.plots.tracking_plots import plot_tracking_2d_trace, plot_tracking_2d_heatmap, plot_tracking_2d_scatter
 from behaviour.utilities.signals import get_times_signal_high_and_low
 
-from analysis.loco.utils import get_experiment_data, get_bouts
+from analysis.loco.utils import get_experiment_data, get_bouts, get_center_bouts
 from analysis.misc.paths import output_fld
 
 
@@ -83,130 +83,65 @@ mice_colors = {k:{m:colorMap(i, cmaps[k], vmin=-4, vmax=len(mice)) for i,m in en
 states = ['left_turn', 'right_turn', 'locomotion_0', 'locomotion_1', 'locomotion_2', 'locomotion_3']
 
 
-# %%
-all_bouts = get_bouts(datasets, only_in_center=True)
-
-bouts_colors = dict(stationary=colorMap(0, name='tab10', vmin=-2, vmax=7),
-                    slow=colorMap(1, name='tab10', vmin=-2, vmax=7),
-                    running=colorMap(2, name='tab10', vmin=-2, vmax=7),
-                    left_turn=colorMap(3, name='tab10', vmin=-2, vmax=7),
-                    right_turn=colorMap(4, name='tab10', vmin=-2, vmax=7),
-
-)
-
-# %%
-f, axarr = plt.subplots(ncols=4, nrows=5, figsize=(20, 10))
-
-for i, (state, bouts) in enumerate(all_bouts['CNO'].items()):
-    # bouts = bouts.loc[bouts.duration < 500]
-    axarr[i, 0].hist(bouts.duration, bins=50, color=bouts_colors[state],
-                        density=True, label=state, alpha=.25)
-    axarr[i, 1].hist(bouts.distance, bins=50, color=bouts_colors[state],
-                        density=True, label=state, alpha=.25)
-
-    axarr[i, 2].hist(bouts.ang_displ, bins=50, color=bouts_colors[state],
-                        density=True, label=state, alpha=.25)
-
-    axarr[i, 3].hist(bouts.abs_ang_displ, bins=50, color=bouts_colors[state],
-                        density=True, label=state, alpha=.25)
-
-    axarr[i, 0].set(title=state + '  duration')
-    axarr[i, 1].set(title='distance')
-    axarr[i, 2].set(title='ang displ')
-    axarr[i, 3].set(title='abs displ')
-
-f.tight_layout()
-
+state_colors = {'left_turn': salmon,
+                'right_turn': lilla,
+                'locomotion_0': colorMap(0, 'Greens', vmin=-2, vmax=6),
+                'locomotion_1': colorMap(1, 'Greens', vmin=-2, vmax=6),
+                'locomotion_2': colorMap(2, 'Greens', vmin=-2, vmax=6),
+                'locomotion_3': colorMap(3, 'Greens', vmin=-2, vmax=6),
+                'locomotion_4': colorMap(3, 'Greens', vmin=-2, vmax=6)}
+center_bouts = get_center_bouts(datasets)
 
 
 # %%
-f, axarr = plt.subplots(ncols=3, nrows=2, sharex=True, figsize=(15, 10), sharey=False)
+f, axarr = plt.subplots(1, 3, figsize=(20, 10))
+for dn, (dataset, bouts) in enumerate(center_bouts.items()):
+    turns = []
+    for i, bout in  bouts.iterrows():
+        if bout.duration <60: continue
+        avel = bout.ang_vel
+        tot_right = np.sum(avel[avel < 0])
+        tot_left = -np.sum(avel[avel > 0])
+
+        turns.append((tot_left - tot_right)/(tot_left + tot_right))
+
+    # plot_kde(axarr[dn], data=np.array(turns), color=colors[dataset], kde_kwargs=dict(bw=.04))
+    axarr[dn].hist(np.array(turns), color=colors[dataset], bins=50)
+    # axarr[dn].axvline(0, color='k', lw=2, ls='--', alpha=.5)
+
+    ball_and_errorbar(np.median(turns), -1, turns, axarr[dn], color=colors[dataset])
+    axarr
 
 
+# %%
+f, axarr = plt.subplots(1, 3, figsize=(10, 5), sharey=True, sharex=True)
 
-for mouse in mice['CNO']:
-    saline_left = all_bouts['SAL']['left_turn'].loc[ all_bouts['SAL']['left_turn'].mouse == mouse]
-    saline_right = all_bouts['SAL']['right_turn'].loc[ all_bouts['SAL']['right_turn'].mouse == mouse]
-    cno_left = all_bouts['CNO']['left_turn'].loc[ all_bouts['CNO']['left_turn'].mouse == mouse]
-    cno_right = all_bouts['CNO']['right_turn'].loc[ all_bouts['CNO']['right_turn'].mouse == mouse]
-
-    sal_left_rev = saline_left.abs_ang_displ.sum()/360
-    sal_right_rev = saline_right.abs_ang_displ.sum()/360
-
-    cno_left_rev = cno_left.abs_ang_displ.sum()/360
-    cno_right_rev = cno_right.abs_ang_displ.sum()/360
-
-    # print(f"\n\nMouse: {mouse}\n")
-    # print(f"SAL, left rev {round(sal_left_rev, 3)} - right rev {round(sal_right_rev, 3)}\n" +
-    #         f"      avg left {round(sal_left_rev/len(saline_left), 3)} right {round(sal_right_rev/len(saline_right), 3)}\n"+
-    #         f"      # left turns {len(saline_left)}" + 
-    #         f"      # right turns {len(saline_right)}")
-    # print(f"CNO, left rev {round(cno_left_rev, 3)} - right rev {round(cno_right_rev, 3)}\n" +
-    #         f"      avg left {round(cno_left_rev/len(cno_left), 3)} right {round(cno_right_rev/len(cno_right), 3)}\n"+
-    #         f"      # left turns {len(cno_left)}" + 
-    #         f"      # right turns {len(cno_right)}")
-
-
-    axarr[0, 0].plot([0, 1], [sal_left_rev, sal_right_rev], 'o', ls='--',
-                                ms=20, lw=6,
-                                color = mice_colors['SAL'][mouse], label=mouse)
-    axarr[1, 0].plot([0, 1], [cno_left_rev, cno_right_rev], 'o', ls='--',
-                                ms=20, lw=6,
-                                color = mice_colors['CNO'][mouse], label=mouse)
+for n, mouse in enumerate(mice['CNO']): 
+    sal_bouts = center_bouts['SAL'].loc[center_bouts['SAL'].mouse == mouse]
+    cno_bouts = center_bouts['CNO'].loc[center_bouts['CNO'].mouse == mouse]
     
-    axarr[0, 1].plot([0, 1], [sal_left_rev/len(saline_left), sal_right_rev/len(saline_right)], 'o', ls='--',
-                                ms=20, lw=6,
-                                color = mice_colors['SAL'][mouse], label=mouse)
-    axarr[1, 1].plot([0, 1], [cno_left_rev/len(cno_left), cno_right_rev/len(cno_right)], 'o', ls='--',
-                                ms=20, lw=6,
-                                color = mice_colors['CNO'][mouse], label=mouse)
-    
-    axarr[0, 2].plot([0, 1], [len(saline_left), len(saline_right)], 'o', ls='--',
-                                ms=20, lw=6,
-                                color = mice_colors['SAL'][mouse], label=mouse)
-    axarr[1, 2].plot([0, 1], [len(cno_left), len(cno_right)], 'o', ls='--',
-                                ms=20, lw=6,
-                                color = mice_colors['CNO'][mouse], label=mouse)
+    turns = {}
+    for dataset, bouts in zip(['saline', 'cno'], [sal_bouts, cno_bouts]):
+        bturns = []
+        for i, bout in  bouts.iterrows():
+            if bout.duration <60: continue
+            avel = bout.ang_vel
+            if np.sum(np.abs(avel)) < 25: continue
+            tot_right = np.sum(avel[avel < 0])
+            tot_left = -np.sum(avel[avel > 0])
 
-axarr[0, 0].set(title='Number of revolutions', xlim=[-.2, 1.2], ylim=[0, 30])
-axarr[1, 0].set(xticks=[0, 1], xticklabels=['left', 'right'], ylim=[0, 30])
-axarr[0, 1].set(title='Avg bout turn', ylim=[0, .1])
-axarr[1, 1].set(xticks=[0, 1], xticklabels=['left', 'right'], ylim=[0, .1])
-axarr[0, 2].set(title='# of turn bouts', ylim=[0, 350])
-axarr[1, 2].set(xticks=[0, 1], xticklabels=['left', 'right'], ylim=[0, 350])
-f.tight_layout()
+            bturns.append((tot_left - tot_right)/(tot_left + tot_right))
+        turns[dataset] = np.array(bturns)
 
+    # plot_kde(axarr[dn], data=np.array(turns), color=colors[dataset], kde_kwargs=dict(bw=.04))
+    # axarr[dn].hist(np.array(turns), color=colors[dataset], bins=50)
+    # axarr[dn].axvline(0, color='k', lw=2, ls='--', alpha=.5)
 
+    # ax.plot([0, 1], [np.mean(turns['saline']), np.mean(turns['cno'])])
+    axarr[n].hist(turns['saline'], color='b', alpha=.4, density=True, bins=15)
+    axarr[n].hist(turns['cno'], color='r', alpha=.4, density=True, bins=15 )
+    axarr[n].set(title=mouse)
 
-
-
-# %%
-f, axarr = plt.subplots(nrows=len(all_bouts['CNO'].keys()),  figsize=(15, 30))
-
-
-for i, (state, bouts) in enumerate(all_bouts['CNO'].items()):
-
-    idxs = choices(bouts.index.values, k=100)
-
-    for n, idx in enumerate(idxs):
-        bout = bouts.iloc[idx]
-
-        x = bout.x - bout.x[0]
-        y = bout.y - bout.y[0]
-        theta = np.radians(np.nanmean(bout.orientation[:5]))
-
-        mtx = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-
-        xy_hat = np.array([mtx.dot(np.array([[x_i],[y_i]])) for x_i,y_i in zip(x,y)])
-        x_hat = xy_hat[:, 0]
-
-        y_hat = xy_hat[:, 1]
-        
-
-
-        axarr[i].plot(x_hat, y_hat, color=bouts_colors[state], lw=2)
-    
-    axarr[i].set(title=state)
 
 
 # %%

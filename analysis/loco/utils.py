@@ -135,11 +135,8 @@ def get_frames_state(tracking):
 
     return tracking
     
-
-
 def get_when_in_center(tracking, center, radius):
     xy = np.vstack([tracking.x, tracking.y])
-
 
     dist = calc_distance_from_point(xy.T, center)
     to_exclude = np.where(dist > radius)[0]
@@ -148,7 +145,51 @@ def get_when_in_center(tracking, center, radius):
     in_center[to_exclude] = 0
     tracking['in_center'] = in_center
     return tracking
-    
+
+
+
+
+def get_center_bouts(datasets):
+    all_bouts = {}
+    for dn, (dataset, datas) in enumerate(datasets.items()):
+        bts = dict(start=[], end=[], speed=[], orientation=[], 
+                                    ang_vel=[], x=[], y=[],
+                                    duration=[], distance=[],
+                                    state=[], in_center=[], mouse=[],
+                                    abs_ang_displ=[], ang_displ=[])
+        for mouse,data in datas.items():
+            in_center = data.in_center.values
+
+            onsets, offsets = get_times_signal_high_and_low(in_center, th=.1)
+            if offsets[0] < onsets[0]:
+                offsets = offsets[1:]
+
+
+
+            # Loop over bouts
+            for onset, offset in zip(onsets, offsets):
+                onset += 1
+                if offset < onset: raise ValueError
+                elif offset - onset < 5: continue # skip bouts that are too short
+                
+                bts['start'].append(onset)
+                bts['end'].append(offset)
+                bts['duration'].append(offset - onset)
+                bts['speed'].append(data.speed.values[onset:offset])
+                bts['distance'].append(np.sum(data.speed.values[onset:offset]))
+                bts['orientation'].append(data.orientation.values[onset:offset])
+                bts['ang_vel'].append(data.ang_vel.values[onset:offset])
+                bts['abs_ang_displ'].append(np.sum(np.abs(data.ang_vel.values[onset:offset])))
+                bts['ang_displ'].append(np.sum(data.ang_vel.values[onset:offset]))
+                bts['x'].append(data.x.values[onset:offset])
+                bts['y'].append(data.y.values[onset:offset])
+                bts['state'].append(data.state.values[onset:offset])
+                bts['in_center'].append(data.in_center.values[onset:offset])
+                bts['mouse'].append(mouse)
+        all_bouts[dataset] = pd.DataFrame(bts)
+    return all_bouts
+
+
 def get_bouts(datasets, bouts_types=None, only_in_center=True):
     # Expects a dictionary of dataframes with datasets of tracking for each mouse
     if bouts_types is None:
