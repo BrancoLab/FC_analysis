@@ -164,60 +164,7 @@ ax.axhline(1, color='k', ls=':', alpha=.5)
 # %%
 # --------------------------------- Get bouts -------------------------------- #
 all_bouts = {}
-bouts_types = ['left_turn', 'right_turn']
-for dn, (dataset, datas) in enumerate(datasets.items()):
-    bouts = {k:[] for k in bouts_types}
-    for mouse, data in datas.items():
-        tot_frames = len(data)
-        state = data.state.values
-
-        for bout_type in bouts_types:
-            is_state = np.zeros(tot_frames)
-            is_state[state == bout_type] = 1
-
-            onsets, offsets = get_times_signal_high_and_low(is_state, th=.1)
-            if offsets[0] < onsets[0]:
-                offsets = offsets[1:]
-
-            bts = dict(start=[], end=[], speed=[], orientation=[], 
-                        ang_vel=[], x=[], y=[],
-                        state=[], in_center=[], mouse=[])
-
-            for onset, offset in zip(onsets, offsets):
-                onset += 1
-                if offset < onset: raise ValueError
-                elif offset - onset < 10: continue
-                
-                bts['start'].append(onset)
-                bts['end'].append(offset)
-                bts['speed'].append(data.speed.values[onset:offset])
-                bts['orientation'].append(data.orientation.values[onset:offset])
-                bts['ang_vel'].append(data.ang_vel.values[onset:offset])
-                bts['x'].append(data.x.values[onset:offset])
-                bts['y'].append(data.y.values[onset:offset])
-                bts['state'].append(data.state.values[onset:offset])
-                bts['in_center'].append(data.in_center.values[onset:offset])
-                bts['mouse'].append(mouse)
-            
-            bouts[bout_type].append(pd.DataFrame(bts))
-    
-    all_bouts[dataset] = {k:pd.concat(b) for k,b in bouts.items()}
-
-
-#%%
-# ---------------- Look at distance distribution for tun bouts --------------- #
-
-test_bouts = all_bouts['CNO']['right_turn']
-distances = [np.sum(s) for s in test_bouts.speed]
-
-for i, bout in test_bouts[40:480].iterrows():
-    x0 = bout.x[0]
-    y0 = bout.y[0]
-
-    plt.plot(bout.x-x0, bout.y-y0,) #  c=bout.ang_vel/bout.speed, cmap='Reds')
-    
-
-
+# TODO get bouts from util function
 
 
 # %%

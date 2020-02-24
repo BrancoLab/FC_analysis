@@ -81,11 +81,6 @@ def fetch_tracking(for_bp=True,
         return pd.DataFrame(q.fetch())
 
 
-
-
-
-
-
 # --------------------------------- Analysis --------------------------------- #
 def get_frames_state(tracking):
     if not len(tracking):
@@ -112,11 +107,10 @@ def get_frames_state(tracking):
     # Get state from clusters
     clusters_means = round(dataset.groupby('cluster').mean(),1)
 
-    left_clusters = clusters_means.loc[clusters_means.angular_velocity < -.5]
-    left_clusters_index = list(left_clusters.index.values)
-    right_clusters = clusters_means.loc[clusters_means.angular_velocity > .5]
+    right_clusters = clusters_means.loc[clusters_means.angular_velocity < -.5]
     right_clusters_index = list(right_clusters.index.values)
-
+    left_clusters = clusters_means.loc[clusters_means.angular_velocity > .5]
+    left_clusters_index = list(left_clusters.index.values)
 
     clusters = dict(
                     left_turn = 'left',
@@ -155,7 +149,75 @@ def get_when_in_center(tracking, center, radius):
     tracking['in_center'] = in_center
     return tracking
     
+def get_bouts(datasets, bouts_types=None, only_in_center=True):
+    # Expects a dictionary of dataframes with datasets of tracking for each mouse
+    if bouts_types is None:
+        bouts_types = ['stationary', 'slow', 'running', 'left_turn', 'right_turn']
+    
+    # Loop over each dataset
+    all_bouts = {}
+    for dn, (dataset, datas) in enumerate(datasets.items()):
+        bouts = {k:[] for k in bouts_types}
 
+        # Loop over each mouse in dataset
+        for mouse, data in datas.items():
+            tot_frames = len(data)
+            state = data.state
+
+            for bout_type in bouts_types:
+                # Get a vector which is 1 only when mouse is in cluster state
+                is_state = np.zeros(tot_frames)
+                if bout_type == 'stationary':
+                    states = ['locomotion_0']
+                elif bout_type == 'running':
+                    states = ['locomotion_3']
+                elif bout_type == 'slow':
+                    states = ['locomotion_1', 'locomotion_2']
+                else:
+                    states = [bout_type]
+                is_state[state.isin(states)] = 1
+
+                if only_in_center:
+                    is_state[data.in_center == 0] = 0
+
+                # Get onsets and offsets of state
+                onsets, offsets = get_times_signal_high_and_low(is_state, th=.1)
+                if offsets[0] < onsets[0]:
+                    offsets = offsets[1:]
+
+                # Prepr a dict to store bouts data
+                bts = dict(start=[], end=[], speed=[], orientation=[], 
+                            ang_vel=[], x=[], y=[],
+                            duration=[], distance=[],
+                            state=[], in_center=[], mouse=[],
+                            abs_ang_displ=[], ang_displ=[])
+
+                # Loop over bouts
+                for onset, offset in zip(onsets, offsets):
+                    onset += 1
+                    if offset < onset: raise ValueError
+                    elif offset - onset < 5: continue # skip bouts that are too short
+                    
+                    bts['start'].append(onset)
+                    bts['end'].append(offset)
+                    bts['duration'].append(offset - onset)
+                    bts['speed'].append(data.speed.values[onset:offset])
+                    bts['distance'].append(np.sum(data.speed.values[onset:offset]))
+                    bts['orientation'].append(data.orientation.values[onset:offset])
+                    bts['ang_vel'].append(data.ang_vel.values[onset:offset])
+                    bts['abs_ang_displ'].append(np.sum(np.abs(data.ang_vel.values[onset:offset])))
+                    bts['ang_displ'].append(np.sum(data.ang_vel.values[onset:offset]))
+                    bts['x'].append(data.x.values[onset:offset])
+                    bts['y'].append(data.y.values[onset:offset])
+                    bts['state'].append(data.state.values[onset:offset])
+                    bts['in_center'].append(data.in_center.values[onset:offset])
+                    bts['mouse'].append(mouse)
+                
+                bouts[bout_type].append(pd.DataFrame(bts))
+        
+        # Concatenate the bouts of each type for each mouse?
+        all_bouts[dataset] = {k:pd.concat(b) for k,b in bouts.items()}
+    return all_bouts
 
 
 
