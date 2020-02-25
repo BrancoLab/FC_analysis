@@ -96,7 +96,7 @@ center_bouts = get_center_bouts(datasets)
 
 
 # %%
-for n, mouse in enumerate(mice['CNO']): 
+for n, mouse in enumerate(sorted(mice['CNO'])): 
     f, axarr = create_figure(subplots=True, ncols=3, nrows=2, figsize=(30, 20))
 
     sal_bouts = center_bouts['SAL'].loc[center_bouts['SAL'].mouse == mouse]
@@ -113,6 +113,7 @@ for n, mouse in enumerate(mice['CNO']):
         bturns, speeds, angvels = [], [], []
         allspeeds, allangvels = [], []
         allx, ally = [], []
+        x_ends = []
         for i, bout in  bouts.iterrows():
             if bout.duration <60: continue
             avel = bout.ang_vel
@@ -133,8 +134,10 @@ for n, mouse in enumerate(mice['CNO']):
 
             allx.extend(x_hat[bout.speed > 2])
             ally.extend(y_hat[bout.speed > 2])
+            x_ends.append(x_hat[-1])
 
             axarr[dn].plot(x_hat, y_hat, color=mouse_color,  alpha=.5)
+            axarr[dn].scatter(x_hat[-1], y_hat[-1], color=mouse_color, ec='k', zorder=99)
 
             if dn == 0:
                 speed = bout.speed
@@ -148,6 +151,7 @@ for n, mouse in enumerate(mice['CNO']):
             axarr[4].scatter(np.nanmean(speed), np.nanmean(bout.ang_vel), color=desaturate_color(mouse_color),
                                     s=50, alpha=1)
    
+        plot_kde(ax=axarr[dn], data=x_ends, z=-650, color=mouse_color, normto=200)
             
         turns[dataset] = np.array(bturns)
         axarr[2].hist(turns[dataset], color=mouse_color, 
