@@ -104,8 +104,15 @@ for n, mouse in enumerate(mice['CNO']):
 
     turns = {}
     for dn, (dataset, bouts) in enumerate(zip(['CNO', 'SAL'], [cno_bouts, sal_bouts])):
+        if dataset == 'CNO':
+            cmap = 'Reds'
+        else:
+            cmap = 'Blues'
+        mouse_color = mice_colors[dataset][mouse]
+
         bturns, speeds, angvels = [], [], []
         allspeeds, allangvels = [], []
+        allx, ally = [], []
         for i, bout in  bouts.iterrows():
             if bout.duration <60: continue
             avel = bout.ang_vel
@@ -124,7 +131,10 @@ for n, mouse in enumerate(mice['CNO']):
             x_hat = xy_hat[0, :].ravel()
             y_hat = xy_hat[1, :].ravel()
 
-            axarr[dn].plot(x_hat, y_hat, color=mice_colors[dataset][mouse], alpha=.75)
+            allx.extend(x_hat[bout.speed > 2])
+            ally.extend(y_hat[bout.speed > 2])
+
+            axarr[dn].plot(x_hat, y_hat, color=mouse_color,  alpha=.5)
 
             if dn == 0:
                 speed = bout.speed
@@ -135,36 +145,39 @@ for n, mouse in enumerate(mice['CNO']):
             speeds.append(np.nanmean(speed))
             angvels.append(np.nanmean(bout.ang_vel))
 
-            axarr[4].scatter(np.nanmean(speed), np.nanmean(bout.ang_vel), color=desaturate_color(mice_colors[dataset][mouse]),
+            axarr[4].scatter(np.nanmean(speed), np.nanmean(bout.ang_vel), color=desaturate_color(mouse_color),
                                     s=50, alpha=1)
    
-
+            
         turns[dataset] = np.array(bturns)
-        axarr[2].hist(turns[dataset], color=mice_colors[dataset][mouse], 
+        axarr[2].hist(turns[dataset], color=mouse_color, 
                         bins=10, histtype='stepfilled', alpha=.35, density=True)
-        axarr[2].hist(turns[dataset], color=mice_colors[dataset][mouse], 
+        axarr[2].hist(turns[dataset], color=mouse_color, 
                         bins=10, histtype='step', alpha=1, lw=4, density=True)
 
-        if dataset == 'CNO':
-            cmap = 'Reds'
-        else:
-            cmap = 'Blues'
-        sns.kdeplot(allspeeds, allangvels, color=mice_colors[dataset][mouse], shade=True, cmap=cmap,
+
+        sns.kdeplot(allspeeds, allangvels, color=mouse_color, shade=True, cmap=cmap,
                                 ax=axarr[3], shade_lowest=False, alpha=.6, zorder=-1, label=dataset)
-        axarr[4].scatter(np.median(speeds), np.median(angvels), color=mice_colors[dataset][mouse],
+        axarr[4].scatter(np.median(speeds), np.median(angvels), color=mouse_color,
                                 s=350, alpha=1, ec='k', lw=2, zorder=99)
  
         
-        sns.kdeplot(speeds, angvels, color=mice_colors[dataset][mouse], shade=True, cmap=cmap,
+        sns.kdeplot(speeds, angvels, color=mouse_color, shade=True, cmap=cmap,
                                 ax=axarr[4], shade_lowest=False, alpha=.6, zorder=-1, label=dataset)
 
         if dataset == 'CNO':
-            plot_kde(ax=axarr[5], data=speeds, color=mice_colors[dataset][mouse], label=dataset, kde_kwargs={'bw':.3})
+            plot_kde(ax=axarr[5], data=speeds, color=mouse_color, label=dataset, kde_kwargs={'bw':.3})
         else:
-            plot_kde(ax=axarr[5], data=-np.array(speeds), color=mice_colors[dataset][mouse], label=dataset, kde_kwargs={'bw':.3})
+            plot_kde(ax=axarr[5], data=-np.array(speeds), color=mouse_color, label=dataset, kde_kwargs={'bw':.3})
+
+
 
     axarr[0].set(title=f'{mouse} - center arena bouts', xlim=[-700, 700], ylim=[-700, 700])
+    axarr[0].axvline(0, color='k', alpha=.5, lw=4, ls='--')
+
     axarr[1].set(xlim=[-700, 700], ylim=[-700, 700])
+    axarr[1].axvline(0, color='k', alpha=.5, lw=4, ls='--')
+
     axarr[2].set(title='$\\frac{\\theta_L - \\theta_R}{\\theta_L + \\theta_R}$', ylabel='density',
                     xticks=[-1, 0, 1], xlabel='$\\frac{\\theta_L - \\theta_R}{\\theta_L + \\theta_R}$')
 
