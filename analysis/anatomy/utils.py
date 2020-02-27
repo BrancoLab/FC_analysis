@@ -6,10 +6,9 @@ from brainrender.Utils.ABA.connectome import ABA
 from fcutils.file_io.io import save_yaml, load_yaml
 from fcutils.file_io.utils import listdir
 
+from analysis.misc.paths import brainsaw_folder, cellfinder_cells_folder, cellfinder_out_dir, injections_folder
+
 aba = ABA()
-cellfinder_cells_folder = 'Z:\\swc\\branco\\BrainSaw\\cellfinder_cells'
-injections_folder = 'Z:\\swc\\branco\\BrainSaw\\injections'
-cellfinder_out_dir='D:\\Dropbox (UCL - SWC)\\Rotation_vte\\analysis_metadata\\anatomy\\cellfinder'
 
 regions_summary_filepath = os.path.join(cellfinder_out_dir, 'regions_summary.hdf')
 
@@ -107,8 +106,8 @@ if __name__ == '__main__':
     all_regions_acronyms = clean_all_regions_acronyms.copy()
     save_yaml('Analysis/anatomy/all_acronyms.yaml', all_regions_acronyms)
 else:
-    all_regions = load_yaml('C:\\Users\\Federico\\Documents\\GitHub\\BehaviourAnalysis\\Analysis\\anatomy\\acronyms.yaml')
-    all_regions_acronyms = load_yaml('C:\\Users\\Federico\\Documents\\GitHub\\BehaviourAnalysis\\Analysis\\anatomy\\all_acronyms.yaml')
+    all_regions = load_yaml('analysis/anatomy/acronyms.yaml')
+    all_regions_acronyms = load_yaml('analysis/anatomy/all_acronyms.yaml')
 
 
 regions_to_exclude =  ['ll', 'ml',  'ee', 'int', 'cc', 'ccb', 'fa', 'f']

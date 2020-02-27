@@ -6,11 +6,7 @@ import brainrender
 brainrender.SHADER_STYLE='cartoon'
 
 from brainrender.scene import Scene, DualScene 
-
-
 import pandas as pd
-
-
 
 from brainrender.colors import get_n_shades_of
 from brainrender.Utils.videomaker import VideoMaker
@@ -21,10 +17,13 @@ import numpy as np
 import os
 from scipy.spatial.distance import euclidean
 from skimage.filters import threshold_otsu
-from vtkplotter.analysis import surfaceIntersection, extractLargestRegion
+from vtkplotter.analysis import surfaceIntersection
 
 from analysis.anatomy.utils import *
 from fcutils.file_io.utils import listdir
+
+from analysis.misc.paths import cellfinder_cells_folder, cellfinder_out_dir, injections_folder
+
 
 BACKGROUND_COLOR='white'
 WHOLE_SCREEN=True
@@ -77,14 +76,10 @@ class CellFinderDoubleScene(DualScene):
 if __name__ == "__main__":
     # ----------------------------- Visualize results CC mice ---------------------------- #
 
-    scene = CellFinderScene(camera='coronal')
+    scene = CellFinderScene()
 
 
-    inj_folder = "Z:\\swc\\branco\\BrainSaw\\injections"
-    cells_folder = "Z:\\swc\\branco\\BrainSaw\\cellfinder_cells"
-
-
-    grn_mice = ['CC_136_1', 'CC_136_0']
+    grn_mice = ['CC_136_1'] #, 'CC_136_0']
     sc_mice = ['CC_134_1', 'CC_134_2']
     dario_sc_mice = ['AY_254_3', 'AY_255_1', 'AY_255_3', 'BF_172_2']
 
@@ -95,34 +90,34 @@ if __name__ == "__main__":
     # ------------------------------- GRN tracings ------------------------------- #
     if True:
         for mouse, color in zip(grn_mice, grn_colors):
-            cells = pd.read_hdf(os.path.join(cells_folder, mouse+'_ch0_cells.h5'), key='hdf')
+            cells = pd.read_hdf(os.path.join(cellfinder_cells_folder, mouse+'_ch0_cells.h5'), key='hdf')
             scene.add_cells_to_scene(cells, color=color, radius=15, res=12, alpha=.4, color_by_region=False)
                                     # in_region=['MOs', 'MOp', 'ZI', 'SCm'])
 
-            # scene.add_injection_site(os.path.join(inj_folder, mouse+'_ch0inj.obj'), c=color)
+            # scene.add_injection_site(os.path.join(injections_folder, mouse+'_ch0inj.obj'), c=color)
 
 
 
     # -------------------------------- SC tracings ------------------------------- #
-    if True:
+    if False:
         for mouse, color in zip(sc_mice, sc_colors):
-            cells = pd.read_hdf(os.path.join(cells_folder, mouse+'_ch1_cells.h5'), key='hdf')
+            cells = pd.read_hdf(os.path.join(cellfinder_cells_folder, mouse+'_ch1_cells.h5'), key='hdf')
 
             scene.add_cells_to_scene(cells, color=color, radius=15, res=12, alpha=.4, color_by_region=False)
                                     # in_region=['MOs', 'MOp', 'ZI', 'GRN'])
 
-            # scene.add_injection_site(os.path.join(inj_folder, mouse+'_ch1inj.obj'), c=color)
+            # scene.add_injection_site(os.path.join(injections_folder, mouse+'_ch1inj.obj'), c=color)
 
 
     # --------------------------------- dario SC --------------------------------- #
     if False:
         for mouse, color in zip(dario_sc_mice, dario_sc_colors):
-            cells = pd.read_hdf(os.path.join(cells_folder, mouse+'_ch1_cells.h5'), key='hdf')
+            cells = pd.read_hdf(os.path.join(cellfinder_cells_folder, mouse+'_ch1_cells.h5'), key='hdf')
 
             scene.add_cells_to_scene(cells, color=color, radius=15, res=12, alpha=.4, color_by_region=False)
                                     # in_region=['MOs', 'MOp', 'ZI', 'GRN'])
 
-            # scene.add_injection_site(os.path.join(inj_folder, mouse+'_ch1inj.obj'), c=color)
+            # scene.add_injection_site(os.path.join(injections_folder, mouse+'_ch1inj.obj'), c=color)
 
     # scene.add_brain_regions(['MOs', 'MOp', 'ZI'], use_original_color=True, alpha=.05,wireframe=False)
     scene.add_brain_regions(['GRN', 'SCm'], use_original_color=True, alpha=.5,wireframe=False)

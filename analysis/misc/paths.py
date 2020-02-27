@@ -43,6 +43,26 @@ dlc_config_file = os.path.join(main_dropbox_fld, 'dlc', 'locomotion-Federico', '
 hpc_dlc_config_file = os.path.join(hpc_loco_fld, 'dlc', 'locomotion-Federico', 'config.yaml').replace("\\", "/")
 
 
+# ---------------------------------------------------------------------------- #
+#                                    ANATOMY                                   #
+# ---------------------------------------------------------------------------- #
+
+# --------------------------------- Brainsaw --------------------------------- #
+if sys.platform != 'darwin':
+    brainsaw_folder = 'Z:\\swc\\branco\\BrainSaw\\'
+else:
+    brainsaw_folder = '/Volumes/swc/branco/BrainSaw'
+cellfinder_cells_folder = os.path.join(brainsaw_folder, 'cellfinder_cells')
+injections_folder = os.path.join(brainsaw_folder, 'injections')
+
+cellfinder_out_dir = os.path.join(main_dropbox_fld, 'output/anatomy')
+
+
+
+
+
+
+
 __all__ = [
     'sessions_log',
     'mice_log',
