@@ -74,8 +74,7 @@ class CellFinderDoubleScene(DualScene):
 
 
 if __name__ == "__main__":
-    # ----------------------------- Visualize results CC mice ---------------------------- #
-
+    # ----------------------------- Visualize results CC mice ---------------------------- #q
     scene = CellFinderScene()
 
 
@@ -88,7 +87,7 @@ if __name__ == "__main__":
     dario_sc_colors = get_n_shades_of('blue', len(dario_sc_mice))
 
     # ------------------------------- GRN tracings ------------------------------- #
-    if True:
+    if False:
         for mouse, color in zip(grn_mice, grn_colors):
             cells = pd.read_hdf(os.path.join(cellfinder_cells_folder, mouse+'_ch0_cells.h5'), key='hdf')
             scene.add_cells_to_scene(cells, color=color, radius=15, res=12, alpha=.4, color_by_region=False)
@@ -99,14 +98,14 @@ if __name__ == "__main__":
 
 
     # -------------------------------- SC tracings ------------------------------- #
-    if False:
+    if True:
         for mouse, color in zip(sc_mice, sc_colors):
             cells = pd.read_hdf(os.path.join(cellfinder_cells_folder, mouse+'_ch1_cells.h5'), key='hdf')
 
-            scene.add_cells_to_scene(cells, color=color, radius=15, res=12, alpha=.4, color_by_region=False)
-                                    # in_region=['MOs', 'MOp', 'ZI', 'GRN'])
+            scene.add_cells_to_scene(cells, color=color, radius=15, res=12, alpha=.4, color_by_region=False,
+                                    in_region=['MOs', 'MOp', 'ACA', 'RSP', 'ZI', 'GRN'])
 
-            # scene.add_injection_site(os.path.join(injections_folder, mouse+'_ch1inj.obj'), c=color)
+            scene.add_injection_site(os.path.join(injections_folder, mouse+'_ch1inj.obj'), c=color)
 
 
     # --------------------------------- dario SC --------------------------------- #

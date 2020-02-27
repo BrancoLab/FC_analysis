@@ -26,7 +26,7 @@ for mouse, (inj, hemi, path) in cell_files.items():
     all_cells = all_cells.loc[all_cells.region != inj]
 
     n_cells = len(all_cells)
-    threshold = 5
+    threshold = 2
 
     ipsi = all_cells.loc[all_cells.hemisphere == hemi]
     ipsi = (ipsi.groupby('region').count().sort_values('region_name')[::-1]/ n_cells) * 100
@@ -51,20 +51,20 @@ edges = []
 regions = list(df.index)
 
 for reg in regions:
-    try:
-        edges.append((f'{reg}_r', 'SC_r', {'weight':ipsi[reg]}))
-    except:
-        pass
+    # try:
+    #     edges.append((f'{reg}_r', 'SC_r', {'weight':ipsi[reg]}))
+    # except:
+    #     pass
 
     try:
         edges.append((f'{reg}_r', 'SC_l', {'weight':contra[reg]}))
     except:
         pass
 
-    try:
-        edges.append((f'{reg}_l', 'SC_r', {'weight':contra[reg]}))
-    except:
-        pass
+    # try:
+    #     edges.append((f'{reg}_l', 'SC_r', {'weight':contra[reg]}))
+    # except:
+    #     pass
 
     try:
         edges.append((f'{reg}_l', 'SC_l', {'weight':ipsi[reg]}))
@@ -95,7 +95,6 @@ for mouse, (inj, hemi, path) in cell_files.items():
     all_cells = all_cells.loc[all_cells.region != inj]
 
     n_cells = len(all_cells)
-    threshold = 5
 
     ipsi = all_cells.loc[all_cells.hemisphere == hemi]
     ipsi = (ipsi.groupby('region').count().sort_values('region_name')[::-1]/ n_cells) * 100
@@ -123,25 +122,22 @@ for reg in regions:
     except:
         pass
 
-    try:
-        edges.append((f'{reg}_r', 'GRN_l', {'weight':contra[reg]}))
-    except:
-        pass
+    # try:
+    #     edges.append((f'{reg}_r', 'GRN_l', {'weight':contra[reg]}))
+    # except:
+    #     pass
 
     try:
         edges.append((f'{reg}_l', 'GRN_r', {'weight':contra[reg]}))
     except:
         pass
 
-    try:
-        edges.append((f'{reg}_l', 'GRN_l', {'weight':ipsi[reg]}))
-    except:
-        pass
+    # try:
+    #     edges.append((f'{reg}_l', 'GRN_l', {'weight':ipsi[reg]}))
+    # except:
+    #     pass
 
-#     edges.append((f'{reg}_l', f'{reg}_r', {'weight':1}))
 
-edges.append(('GRN_r', 'GRN_l', {'weight':1}))
-edges.append(('SC_r', 'SC_l', {'weight':1}))
 
 # edges.append(('SC_r', 'SC_l', {'weight':1}))
 # edges.append(('SC_l', 'GRN_r', {'weight':1}))
@@ -151,5 +147,6 @@ G.add_edges_from(edges)
 
 # %%
 nx.draw(G, with_labels=True, pos=nx.spring_layout(G))
+
 
 # %%
