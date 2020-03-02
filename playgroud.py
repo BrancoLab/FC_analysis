@@ -3,9 +3,29 @@ import os
 import pandas as pd
 import numpy as np
 
+from fcutils.plotting.colors import colorMap
 
 from analysis.misc.paths import cellfinder_cells_folder, cellfinder_out_dir, injections_folder
 from analysis.anatomy.utils import *
+
+
+
+
+
+# %%
+import matplotlib.pyplot as plt
+for i in range(100):
+    color = colorMap(i, name='YlOrBr', vmin=0, vmax=100)
+    # plt.scatter(0, i, c=color, s=20)
+    print(color)
+
+
+
+
+
+
+
+
 
 
 # %%
