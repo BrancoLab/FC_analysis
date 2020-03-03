@@ -47,7 +47,7 @@ keep_min = 60
 center = (480, 480)
 radius = 350
 
-high_speed_bouts = False
+high_speed_bouts = True
 speed_th = 4
 
 # %%
