@@ -2,7 +2,11 @@
 # https://mouse-connectivity-models.readthedocs.io/en/latest/modules/voxel.html
 import sys
 import os
-sys.path.append('C:\\Users\\Federico\\Documents\\GitHub\\FC_analysis')
+
+if sys.platform != 'darwin':
+    sys.path.append('C:\\Users\\Federico\\Documents\\GitHub\\FC_analysis')
+else:
+    sys.path.append('/Users/federicoclaudi/Documents/Github/FC_analysis/')
 
 import numpy as np
 import matplotlib.pyplot as plt
