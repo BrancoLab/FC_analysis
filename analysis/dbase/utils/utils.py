@@ -73,7 +73,7 @@ def get_not_converted_videos(convert_videos, fps=None):
             newbash = newbash.replace("FPS",  str(fps))
             
             # Write output
-            script_name = os.path.join(bash_scripts, "individuals", name+".sh")
+            script_name = os.path.join(bash_scripts, "individuals", name[:-5]+".sh")
             f = open(script_name,"w")
             f.write(newbash)
             f.close() 
