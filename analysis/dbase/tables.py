@@ -4,13 +4,16 @@ import datetime
 import numpy as np
 
 from behaviour.tracking.tracking import prepare_tracking_data, compute_body_segments
+from behaviour.tdms.utils import get_analog_inputs_clean_dataframe
+from behaviour.utilities.signals import get_times_signal_high_and_low
+
 from fcutils.file_io.io import load_excel_file, load_yaml
 from fcutils.file_io.utils import listdir
 from fcutils.maths.filtering import median_filter_1d
 
 from analysis.misc.paths import *
 from analysis.misc.paths import experiments_file, surgeries_file
-from analysis.dbase.utils.dj_config import start_connection, dbname
+from analysis.dbase.utils.dj_config import start_connection, dbname, print_erd
 
 schema = start_connection()
 
@@ -236,6 +239,53 @@ class Session(dj.Manual):
 		return files
 
 
+
+# ---------------------------------------------------------------------------- #
+#                                    STIMULI                                   #
+# ---------------------------------------------------------------------------- #
+@schema
+class Stimuli(dj.Imported):
+	definition = """
+		-> Session
+		stim_number: int
+		---
+		frame_start: int
+		frame_end: int
+
+	"""
+
+	class ToSkip(dj.Part):
+		definition = """
+			session_id: int
+		"""
+
+	def _make_tuples(self, key):
+		# Check if we should skip this session because there were no stimuli
+		to_skip = list(self.ToSkip.fetch("session_id"))
+		if key['session_id'] in to_skip:
+			return
+
+		# Load analog input data
+		session_files = Session().get_files_for_session(session_id=key['session_id'])
+		ai = get_analog_inputs_clean_dataframe(session_files['raw_inputs'], verbose=True)
+
+		# Get stimuli times
+		signal = ai.FP_speaker_signal.values
+
+		onsets, offsets = get_times_signal_high_and_low(signal, th=1, min_time_between_highs=10000)
+
+		if len(onsets) > 1000:
+			raise ValueError(f"Something went wrong, found {len(onsets)} stimuli")
+		if not onsets:
+			self.ToSkip.insert1(dict(session_id=key['session_id']))
+		else:
+			a = 1
+			raise NotImplementedError
+
+
+
+
+
 # ---------------------------------------------------------------------------- #
 #                                   TRACKING                                   #
 # ---------------------------------------------------------------------------- #
@@ -355,3 +405,5 @@ class ProcessedMouse(dj.Computed):
 
 		self.insert1(key)
 
+if __name__ == "__main__": 
+	print_erd() 

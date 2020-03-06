@@ -6,11 +6,11 @@ from analysis.dbase.tables import *
 from analysis.dbase.utils.utils import sort_mantis_files, get_not_converted_videos
 from analysis.dbase.tracking.tracking import track_videos
 
-run_prelims=True
+run_prelims=False
 CONVERT_VIDEOS = False # Set as true to convert video locally, else make bash script for HPC
 TRACK_VIDEOS=False
 
-POPULATE = False
+POPULATE = True
 SUMMARY = False
        
 FPS = 60
@@ -43,6 +43,9 @@ if POPULATE:
 
     # ?  Session
     Session().pop()
+
+    # ?  Stimuliing
+    Stimuli().populate(display_progress=True)
 
     # ? Tracking
     Tracking.populate(display_progress=True)

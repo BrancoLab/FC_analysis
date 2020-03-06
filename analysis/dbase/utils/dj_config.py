@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 try:
     import datajoint as dj
 except Exception as e:
@@ -38,8 +39,10 @@ def start_connection():
 
 
 def print_erd():
-    _, schema = start_connection()
-    dj.ERD(schema).draw()
+    schema = start_connection()
+    # dj.ERD(schema).draw()
+    dj.Diagram(schema).draw()
+    plt.show()
 
 
 if __name__ == "__main__":
