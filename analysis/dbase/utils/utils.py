@@ -3,12 +3,16 @@ import logging
 from fancylog import fancylog
 import fancylog as package
 from tqdm import tqdm
+import multiprocessing as mp
 
 import sys
 logging.disable(sys.maxsize)
 
 from behaviour.tdms.mantis_videoframes_test import check_mantis_dropped_frames
+from behaviour.tdms.utils import get_analog_inputs_clean_dataframe
+
 from fcutils.file_io.utils import listdir, get_subdirs, get_file_name
+
 from tdmstovideo.converter import convert as tdmsconvert
 
 from analysis.misc.paths import *
@@ -17,6 +21,13 @@ from analysis.misc.paths import bash_scripts, hpc_raw_video_fld, hpc_raw_metadat
 # ---------------------------------------------------------------------------- #
 #                          DATABASE POPULATION HELPERS                         #
 # ---------------------------------------------------------------------------- #
+
+def convert_intputs_ais_to_pandas():
+    to_convert = [f for f in listdir(raw_analog_inputs_fld) if f.endswith(".tdms")]
+
+    pool = mp.Pool(mp.cpu_count()-2)
+    pool.map(get_analog_inputs_clean_dataframe, to_convert)
+    pool.close()
 
 
 # ------------------------------ Videos to track ----------------------------- #
@@ -30,7 +41,7 @@ def get_not_tracked_files():
         if not is_tracked:
             not_tracked.append(video)
 
-    print(f"Found {len(not_tracked)} not tracked videos")
+    print(f"Found {len(not_tracked)} not tracked videos.")
     for vid in not_tracked:
         print(f"     {vid}")
     return not_tracked
@@ -46,7 +57,7 @@ def get_not_converted_videos(convert_videos, fps=None):
         if raw.split(".")[0] not in converted:
             to_convert.append(raw)
 
-    print("\n\nFound {} videos to convert: ".format(len(to_convert))) 
+    print("\n\nFound {} videos to convert.".format(len(to_convert))) 
     for vid in to_convert:
         print("     ", vid)     
 
