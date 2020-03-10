@@ -23,9 +23,14 @@ from analysis.misc.paths import bash_scripts, hpc_raw_video_fld, hpc_raw_metadat
 # ---------------------------------------------------------------------------- #
 
 def convert_intputs_ais_to_pandas():
-    to_convert = [f for f in listdir(raw_analog_inputs_fld) if f.endswith(".tdms")]
+    files = [f for f in listdir(raw_analog_inputs_fld)]
+    tdms = [f for f in files if f.endswith(".tdms")]
+    h5 = [get_file_name(f) for f in files if f.endswith(".h5")]
 
-    pool = mp.Pool(mp.cpu_count()-2)
+    to_convert = [f for f in tdms if get_file_name(f) not in h5]
+    print(f'Found {len(to_convert)} tdms files to convert. e.g.: {to_convert[0]}\n')
+
+    pool = mp.Pool(mp.cpu_count()-4)
     pool.map(get_analog_inputs_clean_dataframe, to_convert)
     pool.close()
 
