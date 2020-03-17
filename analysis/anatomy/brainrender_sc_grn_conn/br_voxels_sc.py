@@ -32,47 +32,49 @@ mode = 'mean'
 # targets = ['MOs', 'MOp', 'ZI', 'PAG', 'CUN', 'PPN', 'GRN']
 
 # sources = ['Isocortex', ['MOs', 'MOp', 'ACA']]
-sources = ['MOs5', 'MOs23']
-targets = ['GRN', 'SCm']
-hemispheres= ['left', 'right']
+sources = ['MOs', "SSs", 'SSp']
+targets = ['STR']
+# hemispheres= ['left', 'right']
 
 # vapi = VolumetricAPI(add_root=False)
-for hemisphere in hemispheres:
-    for target in targets:
-        for source in sources:
-            scene_kwargs = dict(
-                screenshot_kwargs = dict(
-                    folder='/Users/federicoclaudi/Dropbox (UCL - SWC)/Rotation_vte/Locomotion/anatomy/sc_projections/screenshots',
-                    name=f'{source}_to_{target}_{mode}',
-                ),
-                use_default_key_bindings = True,
-                title = f'{source} to ({hemisphere}) {target}',
-            )
+# for hemisphere in hemispheres:
+for target in targets:
+    for source in sources:
+        scene_kwargs = dict(
+            screenshot_kwargs = dict(
+                folder='/Users/federicoclaudi/Dropbox (UCL - SWC)/Rotation_vte/Locomotion/anatomy/sc_projections/screenshots',
+                name=f'{source}_to_{target}_{mode}',
+            ),
+            use_default_key_bindings = True,
+            title = f'{source} to {target}',
+        )
 
-            vapi = VolumetricAPI(add_root=True, scene_kwargs=scene_kwargs)
-            vapi.render_mapped_projection(source, target,
-                        std_above_mean_threshold=3,
-                        # vmin=None,
-                        vmax=0.0015, #0.01,
-                        hemisphere=hemisphere, 
+        vapi = VolumetricAPI(add_root=False, scene_kwargs=scene_kwargs)
+        vapi.render_mapped_projection(source, target,
+                    std_above_mean_threshold=3,
+                    # vmin=None,
+                    vmax=0.0015, #0.01,
+                    # hemisphere=hemisphere, 
 
-                        cmap='gist_heat', 
-                        alpha=1,
-                        render_target_region=False,
-                        render_source_region=True,
-                        regions_kwargs={
-                                    'wireframe':False, 
-                                    'alpha':.3, 
-                                    'use_original_color':False},
-                        projection_mode=mode,
-                        mode='source',
-                        )
+                    cmap='gist_heat', 
+                    alpha=1,
+                    render_target_region=True,
+                    render_source_region=False,
+                    regions_kwargs={
+                                'wireframe':False, 
+                                'alpha':.2, 
+                                'use_original_color':False},
+                    projection_mode=mode,
+                    mode='target',
+                    )
 
-            for camera in ['sagittal', 'three_quarters']:
-                vapi.render(interactive=False, display=False, camera=camera, zoom=1.1)  
+        # vapi.scene.add_brain_regions(['VAL'], use_original_color=True, wireframe=True)
 
-                # time.sleep(1)
-                vapi.scene.take_screenshot()
+        for camera in [bespoke_camera]:
+            vapi.render(interactive=False, display=False, camera=camera, zoom=1.1)  
+
+            # time.sleep(1)
+            vapi.scene.take_screenshot()
 
 #                 # break
 #         #     break

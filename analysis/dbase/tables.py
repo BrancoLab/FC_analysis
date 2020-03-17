@@ -267,7 +267,7 @@ class Stimuli(dj.Imported):
 
 		# Load analog input data
 		session_files = Session().get_files_for_session(session_id=key['session_id'])
-		ai = get_analog_inputs_clean_dataframe(session_files['raw_inputs'], verbose=True)
+		ai = get_analog_inputs_clean_dataframe(session_files['raw_inputs'], verbose=True, try_load_from_h5=False, save_df=False)
 
 		# Get stimuli times
 		signal = ai.FP_speaker_signal.values

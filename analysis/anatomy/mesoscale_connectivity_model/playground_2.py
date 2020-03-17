@@ -27,46 +27,61 @@ voxel_array, source_mask, target_mask = cache.get_voxel_connectivity_array()
 
 
 # %%
+# Get index of array that correspond to SC targets
 structure_tree = cache.get_structure_tree()
+
 SCm_id = structure_tree.get_structures_by_acronym(["SCm"])[0]["id"]
 MOs_id = structure_tree.get_structures_by_acronym(["MOs"])[0]["id"]
-RSP_id = structure_tree.get_structures_by_acronym(["RSP"])[0]["id"]
 
-
-target = target_mask.get_structure_indices(structure_ids=[SCm_id], hemisphere_id=3)
-source = source_mask.get_structure_indices(structure_ids=[MOs_id], hemisphere_id=3)
-rsp_source = source_mask.get_structure_indices(structure_ids=[RSP_id], hemisphere_id=3)
-
-# %%
-sc_mask = Mask.from_cache(cache, structure_ids=[SCm_id], hemisphere_id=3)
-key = sc_mask.get_key()
-
-# %%
-projection = voxel_array[source, target]
-mean_proj = np.mean(projection, axis=0)
-
-
-rsp_projection = voxel_array[rsp_source, target]
-mrsp_ean_proj = np.mean(rsp_projection, axis=0)
-
-mapped = sc_mask.map_masked_to_annotation(mean_proj)
-rsp_mapped = sc_mask.map_masked_to_annotation(mrsp_ean_proj)
+rSC = target_mask.get_structure_indices(structure_ids=[SCm_id], hemisphere_id=2)
+MOs = source_mask.get_structure_indices(structure_ids=[MOs_id], hemisphere_id=2)
 
 
 # %%
-from vtkplotter import *
-from vtkplotter.vtkio import loadNumpy
+# Get the coordinates for each sc target
+coords = np.array([target_mask.coordinates[p]*100 for p in rSC])
 
-
-vol = Volume(mapped)
-lego = vol.legosurface(vmin=np.mean(mapped), cmap='Greens').alpha(.5).lw(0)
-
-
-vol2 = Volume(rsp_mapped)
-lego2 = vol2.legosurface(vmin=np.mean(rsp_mapped), cmap='Reds').alpha(.5).lw(0)
-
-show(lego, lego2, axes=4, viewup='z')
 # %%
+# Sort both coords and projection data
+proj_mtx = voxel_array[MOs, rSC]
+original = proj_mtx.copy()
 
+sorter = np.argsort(proj_mtx)
+
+# proj_mtx = np.sort(proj_mtx)
+
+# f, axarr = plt.subplots(ncols=2)
+# axarr[0].imshow(original)
+# axarr[1].imshow(proj_mtx)
+
+
+# %%
+# prepr vars to create a graph
+m2_nodes = [f'M2_{p}' for p in np.arange(proj_mtx.shape[0])]
+sc_nodes = [f'SC_{p}' for p in np.arange(proj_mtx.shape[1])]
+
+edges = []
+th = np.mean(original) + 4 * np.std(original)
+for m, m2n in enumerate(m2_nodes):
+    for s, scn in enumerate(sc_nodes):
+        weight = original[m, s]
+        if weight > th:
+            edges.append((m2n, scn, {'weight':original[m, s]}))
+
+
+
+# %%
+G=nx.DiGraph()
+G.add_nodes_from(m2_nodes, region='MOs')
+G.add_nodes_from(sc_nodes, region='SCm')
+G.add_edges_from(edges)
+
+isolates = nx.isolates(G)
+G.remove_nodes_from(list(isolates))
+G.number_of_edges()
+
+
+# %%
+nx.draw(G)
 
 # %%
