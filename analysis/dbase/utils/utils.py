@@ -46,7 +46,7 @@ def get_not_tracked_files():
         if not is_tracked:
             not_tracked.append(video)
 
-    print(f"Found {len(not_tracked)} not tracked videos.")
+    print(f"Found {len(not_tracked)} videos to track.")
     for vid in not_tracked:
         print(f"     {vid}")
     return not_tracked
