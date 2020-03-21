@@ -1,3 +1,9 @@
+"""
+    Makes clips showing which "behaviour" is happening at any frame, e.g. locomotion, turning, stationary etc...
+
+"""
+
+
 # %%
 # Imports
 import sys
