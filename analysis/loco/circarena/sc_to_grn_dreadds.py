@@ -165,7 +165,6 @@ ax.axhline(1, color='k', ls=':', alpha=.5)
 # %%
 # --------------------------------- Get bouts -------------------------------- #
 all_bouts = {}
-# TODO get bouts from util function
 
 
 # %%

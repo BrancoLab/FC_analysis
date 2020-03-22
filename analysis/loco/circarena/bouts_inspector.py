@@ -2,7 +2,9 @@
 # Imports
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.getcwd())))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.getcwd()))))
+sys.path.append('./')
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -135,10 +137,10 @@ for n, mouse in enumerate(sorted(mice['CNO'])):
         bouts_count = 0
         for i, bout in  bouts.iterrows():
             # Ignore bouts that are too slow or fast
-            if high_speed_bouts:
-                if np.mean(bout.speed) < speed_th: continue
-            elif not high_speed_bouts:
-                if np.mean(bout.speed) > speed_th: continue
+            # if high_speed_bouts:
+            #     if np.mean(bout.speed) < speed_th: continue
+            # elif not high_speed_bouts:
+            #     if np.mean(bout.speed) > speed_th: continue
 
             # Ignore bouts that are too short
             if bout.duration <60: continue
@@ -262,6 +264,3 @@ for n, mouse in enumerate(sorted(mice['CNO'])):
 
 # %%
 
-
-
-# %%
