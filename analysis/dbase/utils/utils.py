@@ -30,7 +30,7 @@ def convert_intputs_ais_to_pandas():
     to_convert = [f for f in tdms if get_file_name(f) not in h5]
     print(f'Found {len(to_convert)} tdms files to convert. e.g.: {to_convert[0]}\n')
 
-    pool = mp.Pool(mp.cpu_count()-4)
+    pool = mp.Pool(mp.cpu_count()-2)
     pool.map(get_analog_inputs_clean_dataframe, to_convert)
     pool.close()
 

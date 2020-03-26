@@ -35,9 +35,14 @@ def fetch_tracking_processed(experiment = None, subexperiment = None,
     if injected is not None:
         q = q * Session.IPinjection & f'injected="{injected}"'
     if len(q) == 1:
-        return pd.DataFrame(q.fetch1())
+        df =  pd.DataFrame(q.fetch1())
     else:
-        return pd.DataFrame(q.fetch())
+        df =  pd.DataFrame(q.fetch())
+
+    if df.empty:
+        raise ValueError("Could not fetch tracking data processed...")
+    else:
+        return df
 
 
 
@@ -286,6 +291,9 @@ def get_experiment_data(experiment=None, subexperiment=None, mouse=None, injecte
 
         if only_in_center is not None:
             track = track.loc[track.in_center == only_in_center]
+
+        if len(track) < 50000: # there's very few frames
+            raise ValueError("Something went wrong while fetching data")
 
         data[mouse] = track
     return data
