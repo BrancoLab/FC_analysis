@@ -279,7 +279,6 @@ class Stimuli(dj.Imported):
 		if not onsets:
 			self.ToSkip.insert1(dict(session_id=key['session_id']))
 		else:
-			a = 1
 			raise NotImplementedError
 
 

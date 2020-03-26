@@ -14,6 +14,10 @@ from behaviour.utilities.signals import get_times_signal_high_and_low
 
 from analysis.dbase.tables import Session, Tracking, ProcessedMouse
 
+"""
+    Bunch of utils to facilitated the loading and processing of locomotion data
+"""
+
 
 # --------------------------------- Fetchers --------------------------------- #
 def fetch_tracking_processed(experiment = None, subexperiment = None, 

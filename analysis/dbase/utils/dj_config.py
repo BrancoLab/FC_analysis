@@ -7,7 +7,8 @@ except Exception as e:
 
 import sys
 if sys.platform == "darwin":
-    ip = "192.168.241.87"
+    # ip = "192.168.241.87"
+    ip = "localhost"
 else:
     ip = "localhost"
 

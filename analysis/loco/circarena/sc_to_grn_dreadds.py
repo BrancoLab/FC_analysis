@@ -2,7 +2,9 @@
 # Imports
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.getcwd())))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.getcwd()))))
+sys.path.append('./')
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -50,8 +52,6 @@ radius = 350
 high_speed_bouts = True
 speed_th = 4
 
-raise NotImplementedError("Filter the datasets by injection tgt")
-
 # %%
 # -------------------------------- Fetch data -------------------------------- #
 print("Fetching baseline")
@@ -91,27 +91,6 @@ state_colors = {'left_turn': salmon,
                 'locomotion_3': colorMap(3, 'Greens', vmin=-2, vmax=6),
                 'locomotion_4': colorMap(3, 'Greens', vmin=-2, vmax=6)}
 center_bouts = get_center_bouts(datasets)
-
-# %%
-# Get number of frames in each experiment
-nframes = dict(
-    mouse = [],
-    dataset = [],
-    session_id = [],
-    date = [],
-    n_frames = []
-)
-
-for ds, d in datasets.items():
-    for mouse in d.keys():
-        nframes['mouse'].append(mouse)
-        nframes['dataset'].append(ds)
-        nframes['session_id'].append(d[mouse].iloc[0]['session_id'])
-        nframes['date'].append(d[mouse].iloc[0]['date'])
-        nframes['session_id'].append(len(d[mouse]))
-
-nframes = pd.DataFrame(nframes)
-nframes
 
 
 # %%
@@ -158,10 +137,10 @@ for n, mouse in enumerate(sorted(mice['CNO'])):
         bouts_count = 0
         for i, bout in  bouts.iterrows():
             # Ignore bouts that are too slow or fast
-            if high_speed_bouts:
-                if np.mean(bout.speed) < speed_th: continue
-            elif not high_speed_bouts:
-                if np.mean(bout.speed) > speed_th: continue
+            # if high_speed_bouts:
+            #     if np.mean(bout.speed) < speed_th: continue
+            # elif not high_speed_bouts:
+            #     if np.mean(bout.speed) > speed_th: continue
 
             # Ignore bouts that are too short
             if bout.duration <60: continue
@@ -280,11 +259,8 @@ for n, mouse in enumerate(sorted(mice['CNO'])):
     set_figure_subplots_aspect(wspace=.4, hspace=.4, top=.9, bottom=.15)
     clean_axes(f)
     f.suptitle(f'{mouse} summary.', fontsize=22)
-    # save_figure(f, os.path.join(output_fld, f'{mouse}_highspeed_{high_speed_bouts}_bouts_summary'))
-    break
+    save_figure(f, os.path.join(output_fld, f'{mouse}_highspeed_{high_speed_bouts}_bouts_summary'))
+    # break
 
 # %%
 
-
-
-# %%

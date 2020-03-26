@@ -6,12 +6,20 @@ from analysis.dbase.tables import *
 from analysis.dbase.utils.utils import sort_mantis_files, get_not_converted_videos, convert_intputs_ais_to_pandas
 from analysis.dbase.tracking.tracking import track_videos
 
+<<<<<<< HEAD
 run_prelims = False
+=======
+run_prelims = True
+>>>>>>> 66438cc9f39ba11b492a6ba6772120a3cd5add3d
 CONVERT_TDMS_AI = False
 CONVERT_VIDEOS = False # Set as true to convert video locally, else make bash script for HPC
 TRACK_VIDEOS = False
 
+<<<<<<< HEAD
 POPULATE = False
+=======
+POPULATE = True
+>>>>>>> 66438cc9f39ba11b492a6ba6772120a3cd5add3d
 SUMMARY = True
        
 FPS = 60
