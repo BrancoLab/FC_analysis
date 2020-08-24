@@ -79,7 +79,7 @@ colors = dict(baseline=[.2, .8, .2],
             CNO=[.8, .2, .2], 
             SAL=[.2, .2, .8])
 cmaps = dict(baseline='Greens', CNO='Reds', SAL='Blues')
-mice_colors = {k:{m:colorMap(i, cmaps[k], vmin=-4, vmax=len(mice)+2) for i,m in enumerate(mice[k])} for k in datasets.keys()}
+mice_colors = {k:{m:colors[k] for m in mice[k]} for k in datasets.keys()}
 states = ['left_turn', 'right_turn', 'locomotion_0', 'locomotion_1', 'locomotion_2', 'locomotion_3']
 
 

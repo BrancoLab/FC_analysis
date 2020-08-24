@@ -95,6 +95,20 @@ def get_not_converted_videos(convert_videos, fps=None):
             f.close() 
             print("Created bash script at: " + script_name)
 
+            print("""
+                With VPN active, use these commands to connect to HPC and submit converting jobs. 
+                Make sure first that batchrun_tdmsconv_on_hpc doesn't include old bash scripts
+
+                ssh federicoc@ssh.swc.ucl.ac.uk
+
+                cd ../../../ # get to where winstor is
+                cd winstor/branco/Federico/Locomotion/bash_scripts/
+
+                bash batchrun_tdmsconv_on_hpc.sh # submit jobs
+
+                squeue -u federicoc -i 30 #  to watch progress
+            """)
+
 
 # ----------------------------- Sort mantis files ---------------------------- #
 def sort_mantis_files():

@@ -12,7 +12,7 @@ if sys.platform == "darwin":
 else:
     ip = "localhost"
 
-dbname = 'Locomotion'    # Name of the database subfolder with data
+dbname = 'Locomotion_new'    # Name of the database subfolder with data
 
 def start_connection():
     """
@@ -27,7 +27,7 @@ def start_connection():
             return None, None
 
         dj.config['database.user'] = 'root'
-        dj.config['database.password'] = 'fede'
+        dj.config['database.password'] = 'fede123' if sys.platform != 'darwin' else 'fede'
         dj.config['database.safemode'] = True
         dj.config['safemode']= True
 
@@ -35,7 +35,11 @@ def start_connection():
 
         dj.conn()
 
-    schema = dj.schema(dbname)
+    try:
+        schema = dj.schema(dbname)
+    except Exception as e:
+        raise ValueError(f'\n\nFailed to connect, if on windows make sure that MySql57 service is running.\n{e}')
+
     return schema
 
 

@@ -11,7 +11,7 @@ CONVERT_TDMS_AI = False
 CONVERT_VIDEOS = False # Set as true to convert video locally, else make bash script for HPC
 TRACK_VIDEOS = False
 
-POPULATE = False
+POPULATE = True
 SUMMARY = True
        
 FPS = 60
@@ -53,8 +53,8 @@ if __name__ == "__main__":
         # ? Tracking
         Tracking.populate(display_progress=True)
 
-        # ? Processed tracking
-        ProcessedMouse.populate(display_progress=True)
+        # # ? Processed tracking
+        # ProcessedMouse.populate(display_progress=True)
 
 
     # ---------------------------------------------------------------------------- #
